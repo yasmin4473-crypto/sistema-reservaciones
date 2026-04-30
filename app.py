@@ -6,6 +6,10 @@ from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
+@app.route("/")
+def inicio():
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 ARCHIVO = "reservaciones.json"
 
