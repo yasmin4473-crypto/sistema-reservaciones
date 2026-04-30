@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hacer una Reservación</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .logo { font-size: 32px; margin-bottom: 8px; }
+    h1 { font-size: 22px; color: #111; margin-bottom: 4px; }
+    .subtitle { font-size: 14px; color: #888; margin-bottom: 28px; }
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+      display: block;
+      margin-bottom: 5px;
+    }
+    input, select {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #e8e8e8;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border 0.2s;
+      background: #fafafa;
+    }
+    input:focus, select:focus {
+      border-color: #667eea;
+      background: white;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .success {
+      display: none;
+      text-align: center;
+      padding: 30px 20px;
+    }
+    .success .icon { font-size: 56px; margin-bottom: 16px; }
+    .success h2 { font-size: 20px; color: #111; margin-bottom: 8px; }
+    .success p { font-size: 14px; color: #888; }
+    .whatsapp-box {
+      background: #f0fdf4;
+      border: 1.5px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #166534;
+      line-height: 1.6;
+    }
+    .whatsapp-box strong { display: block; margin-bottom: 4px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">📅</div>
+    <h1>Hacer una Reservación</h1>
+    <p class="subtitle">Llena el formulario y te confirmamos por email</p>
+
+    <div class="whatsapp-box">
+      <strong>📱 También puedes reservar por WhatsApp</strong>
+      Manda un mensaje al <strong>+1 833 684 1568</strong> con el formato:<br>
+      <code>reservar / Tu nombre / 2026-05-15 / 10:00 AM / Servicio</code>
+    </div>
+
+    <form id="form">
+      <label>Nombre completo</label>
+      <input type="text" id="nombre" placeholder="Ej: María García" required>
+
+      <label>Email</label>
+      <input type="email" id="email" placeholder="tu@email.com" required>
+
+      <label>Teléfono (solo números, sin guiones)</label>
+      <input type="tel" id="telefono" placeholder="5551234567">
+
+      <label>Servicio</label>
+      <select id="servicio">
+        <option value="Consulta general">Consulta general</option>
+        <option value="Reunión de negocio">Reunión de negocio</option>
+        <option value="Servicio 1">Servicio 1</option>
+        <option value="Servicio 2">Servicio 2</option>
+      </select>
+
+      <div class="row">
+        <div>
+          <label>Fecha</label>
+          <input type="date" id="fecha" required>
+        </div>
+        <div>
+          <label>Hora</label>
+          <select id="hora">
+            <option>9:00 AM</option>
+            <option>10:00 AM</option>
+            <option>11:00 AM</option>
+            <option>12:00 PM</option>
+            <option>1:00 PM</option>
+            <option>2:00 PM</option>
+            <option>3:00 PM</option>
+            <option>4:00 PM</option>
+            <option>5:00 PM</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" id="btn">Confirmar Reservación</button>
+    </form>
+
+    <div class="success" id="success">
+      <div class="icon">✅</div>
+      <h2>¡Reservación Confirmada!</h2>
+      <p>Revisa tu email para ver los detalles.<br>Si diste tu teléfono también recibirás un WhatsApp.</p>
+    </div>
+  </div>
+
+  <script>
+    // Bloquea fechas pasadas
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha').min = hoy;
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btn');
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+
+      const datos = {
+        nombre:   document.getElementById('nombre').value,
+        email:    document.getElementById('email').value,
+        telefono: document.getElementById('telefono').value,
+        servicio: document.getElementById('servicio').value,
+        fecha:    document.getElementById('fecha').value,
+        hora:     document.getElementById('hora').value
+      };
+
+      try {
+        const res = await fetch('http://localhost:5000/reservar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(datos)
+        });
+
+        if (res.ok) {
+          document.getElementById('form').style.display = 'none';
+          document.getElementById('success').style.display = 'block';
+        } else {
+          alert('Hubo un error. Intenta de nuevo.');
+          btn.disabled = false;
+          btn.textContent = 'Confirmar Reservación';
+        }
+      } catch (err) {
+        alert('No se pudo conectar al servidor. Asegúrate que app.py está corriendo.');
+        btn.disabled = false;
+        btn.textContent = 'Confirmar Reservación';
+      }
+    });
+  </script>
+</body>
+</html>
