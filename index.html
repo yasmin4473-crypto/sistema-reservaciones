@@ -167,7 +167,7 @@
       };
 
       try {
-        const res = await fetch('http://localhost:5000/reservar', {
+        const res = await fetch('https://web-production-41149.up.railway.app/reservar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(datos)
