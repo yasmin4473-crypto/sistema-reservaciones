@@ -1,8 +1,14 @@
 import smtplib
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from twilio.rest import Client
-from config import TWILIO_SID, TWILIO_TOKEN, TWILIO_NUM, GMAIL_USER, GMAIL_PASS
+
+TWILIO_SID   = os.environ.get("TWILIO_ACCOUNT_SID")
+TWILIO_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_NUM   = os.environ.get("TWILIO_WHATSAPP_NUM")
+GMAIL_USER   = os.environ.get("GMAIL_USER")
+GMAIL_PASS   = os.environ.get("GMAIL_PASSWORD")
 
 def mandar_email(destinatario, nombre, fecha, hora, servicio):
     try:
@@ -10,7 +16,6 @@ def mandar_email(destinatario, nombre, fecha, hora, servicio):
         msg["From"] = GMAIL_USER
         msg["To"] = destinatario
         msg["Subject"] = "Tu reservacion esta confirmada"
-
         cuerpo = f"""
 Hola {nombre},
 
@@ -24,7 +29,6 @@ Si necesitas cancelar responde este email.
 
 Te esperamos!
         """
-
         msg.attach(MIMEText(cuerpo, "plain"))
         servidor = smtplib.SMTP("smtp.gmail.com", 587)
         servidor.starttls()
@@ -33,7 +37,6 @@ Te esperamos!
         servidor.quit()
         print(f"Email enviado a {destinatario}")
         return True
-
     except Exception as e:
         print(f"Error enviando email: {e}")
         return False
@@ -49,7 +52,6 @@ def mandar_whatsapp(numero_cliente, nombre, fecha, hora, servicio):
         )
         print(f"WhatsApp enviado a {numero_cliente}")
         return True
-
     except Exception as e:
         print(f"Error enviando WhatsApp: {e}")
         return False
