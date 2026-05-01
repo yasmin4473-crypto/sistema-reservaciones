@@ -1,40 +1,32 @@
-import smtplib
 import os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import resend
 from twilio.rest import Client
 
 TWILIO_SID   = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_NUM   = os.environ.get("TWILIO_WHATSAPP_NUM")
-GMAIL_USER   = os.environ.get("GMAIL_USER")
-GMAIL_PASS   = os.environ.get("GMAIL_PASSWORD")
+RESEND_KEY   = os.environ.get("RESEND_API_KEY")
+
+resend.api_key = RESEND_KEY
 
 def mandar_email(destinatario, nombre, fecha, hora, servicio):
     try:
-        msg = MIMEMultipart()
-        msg["From"] = GMAIL_USER
-        msg["To"] = destinatario
-        msg["Subject"] = "Tu reservacion esta confirmada"
-        cuerpo = f"""
-Hola {nombre},
-
-Tu reservacion ha sido confirmada:
-
-Fecha:    {fecha}
-Hora:     {hora}
-Servicio: {servicio}
-
-Si necesitas cancelar responde este email.
-
-Te esperamos!
-        """
-        msg.attach(MIMEText(cuerpo, "plain"))
-        servidor = smtplib.SMTP("smtp.gmail.com", 587)
-        servidor.starttls()
-        servidor.login(GMAIL_USER, GMAIL_PASS)
-        servidor.send_message(msg)
-        servidor.quit()
+        resend.Emails.send({
+            "from": "reservaciones@resend.dev",
+            "to": destinatario,
+            "subject": "Tu reservacion esta confirmada",
+            "html": f"""
+            <h2>Hola {nombre}!</h2>
+            <p>Tu reservacion ha sido confirmada:</p>
+            <ul>
+                <li><strong>Fecha:</strong> {fecha}</li>
+                <li><strong>Hora:</strong> {hora}</li>
+                <li><strong>Servicio:</strong> {servicio}</li>
+            </ul>
+            <p>Si necesitas cancelar responde este email.</p>
+            <p>Te esperamos!</p>
+            """
+        })
         print(f"Email enviado a {destinatario}")
         return True
     except Exception as e:
