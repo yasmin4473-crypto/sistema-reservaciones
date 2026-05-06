@@ -16,6 +16,8 @@ from cliente_config import (
 )
 import json, os
 from datetime import datetime
+import stripe
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 
 app = Flask(__name__)
 CORS(app)
@@ -444,6 +446,156 @@ def chat():
     return jsonify({"respuesta": no_entiendo, "idioma": idioma})
 
 
+# ─── PAGOS CON STRIPE ────────────────────────────────────
+@app.route("/pagar", methods=["GET"])
+def pagar():
+    paquete = request.args.get("paquete", "basic")
+    precios = {
+        "basic":        {"setup": 50000, "mensual": 17500, "nombre": "Basic Package"},
+        "standard":     {"setup": 90000, "mensual": 27500, "nombre": "Standard Package"},
+        "professional": {"setup": 200000, "mensual": 35000, "nombre": "Professional Package"},
+    }
+    p = precios.get(paquete, precios["basic"])
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>Pago — Drivft LLC</title>
+        <script src="https://js.stripe.com/v3/"></script>
+        <style>
+            *{{margin:0;padding:0;box-sizing:border-box}}
+            body{{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
+            .card{{background:white;border-radius:20px;padding:2rem;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.2)}}
+            h1{{font-size:22px;color:#111;margin-bottom:4px}}
+            .sub{{font-size:14px;color:#888;margin-bottom:24px}}
+            .precio{{background:#f5f5f5;border-radius:12px;padding:16px;margin-bottom:20px}}
+            .precio-val{{font-size:32px;font-weight:600;color:#5C3D8F}}
+            .precio-label{{font-size:13px;color:#888;margin-top:4px}}
+            label{{font-size:13px;font-weight:500;color:#444;display:block;margin-bottom:5px}}
+            input{{width:100%;padding:10px 14px;border:1.5px solid #e8e8e8;border-radius:8px;font-size:14px;margin-bottom:16px;outline:none}}
+            input:focus{{border-color:#5C3D8F}}
+            #card-element{{padding:12px 14px;border:1.5px solid #e8e8e8;border-radius:8px;margin-bottom:16px}}
+            button{{width:100%;padding:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}}
+            button:disabled{{opacity:0.6}}
+            #error{{color:#ef4444;font-size:13px;margin-bottom:12px}}
+            .badge{{display:inline-block;background:#E1F5EE;color:#085041;font-size:12px;padding:4px 10px;border-radius:20px;margin-bottom:16px}}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="badge">🔒 Pago seguro con Stripe</div>
+            <h1>Drivft LLC</h1>
+            <p class="sub">{p['nombre']}</p>
+            <div class="precio">
+                <div class="precio-val">${p['setup']//100:,}</div>
+                <div class="precio-label">Setup fee unico + ${p['mensual']//100}/mes despues</div>
+            </div>
+            <label>Nombre completo</label>
+            <input type="text" id="nombre" placeholder="Juan Garcia" required>
+            <label>Email</label>
+            <input type="email" id="email" placeholder="tu@email.com" required>
+            <label>Tarjeta de credito</label>
+            <div id="card-element"></div>
+            <div id="error"></div>
+            <button id="btn">Pagar ${p['setup']//100:,} ahora</button>
+        </div>
+        <script>
+            const stripe = Stripe('{os.environ.get("STRIPE_PUBLIC_KEY")}');
+            const elements = stripe.elements();
+            const card = elements.create('card', {{style: {{base: {{fontSize: '16px', color: '#424770'}}}}}});
+            card.mount('#card-element');
+            
+            document.getElementById('btn').addEventListener('click', async () => {{
+                const btn = document.getElementById('btn');
+                btn.disabled = true;
+                btn.textContent = 'Procesando...';
+                
+                const nombre = document.getElementById('nombre').value;
+                const email = document.getElementById('email').value;
+                
+                const res = await fetch('/crear-pago', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify({{paquete: '{paquete}', nombre, email}})
+                }});
+                const data = await res.json();
+                
+                if (data.error) {{
+                    document.getElementById('error').textContent = data.error;
+                    btn.disabled = false;
+                    btn.textContent = 'Reintentar';
+                    return;
+                }}
+                
+                const result = await stripe.confirmCardPayment(data.client_secret, {{
+                    payment_method: {{card, billing_details: {{name: nombre, email: email}}}}
+                }});
+                
+                if (result.error) {{
+                    document.getElementById('error').textContent = result.error.message;
+                    btn.disabled = false;
+                    btn.textContent = 'Reintentar';
+                }} else {{
+                    window.location.href = '/pago-exitoso?nombre=' + nombre + '&paquete={paquete}';
+                }}
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    return html
+
+
+@app.route("/crear-pago", methods=["POST"])
+def crear_pago():
+    try:
+        datos = request.json
+        paquete = datos.get("paquete", "basic")
+        precios_setup = {"basic": 50000, "standard": 90000, "professional": 200000}
+        
+        intent = stripe.PaymentIntent.create(
+            amount=precios_setup.get(paquete, 50000),
+            currency="usd",
+            metadata={"paquete": paquete, "cliente": datos.get("nombre"), "email": datos.get("email")}
+        )
+        return jsonify({"client_secret": intent.client_secret})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@app.route("/pago-exitoso")
+def pago_exitoso():
+    nombre = request.args.get("nombre", "Cliente")
+    paquete = request.args.get("paquete", "basic")
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>Pago Exitoso — Drivft LLC</title>
+        <style>
+            *{{margin:0;padding:0;box-sizing:border-box}}
+            body{{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;display:flex;align-items:center;justify-content:center}}
+            .card{{background:white;border-radius:20px;padding:3rem;width:100%;max-width:480px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2)}}
+            .icon{{font-size:64px;margin-bottom:16px}}
+            h1{{font-size:24px;color:#111;margin-bottom:8px}}
+            p{{font-size:15px;color:#888;margin-bottom:24px}}
+            a{{display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:8px;text-decoration:none;font-weight:500}}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="icon">🎉</div>
+            <h1>Pago Exitoso!</h1>
+            <p>Gracias {nombre}! Tu pago del paquete <strong>{paquete.title()}</strong> fue procesado. Te contactaremos en menos de 24 horas para comenzar tu proyecto.</p>
+            <a href="/">Volver al inicio</a>
+        </div>
+    </body>
+    </html>
+    """
+    return html
 if __name__ == "__main__":
     print(f"{NEGOCIO_EMOJI} {NEGOCIO_NOMBRE} — Sistema corriendo...")
     port = int(os.environ.get("PORT", 5000))
