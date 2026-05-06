@@ -12,7 +12,7 @@ resend.api_key = RESEND_KEY
 def mandar_email(destinatario, nombre, fecha, hora, servicio):
     try:
         resend.Emails.send({
-            "from": "reservaciones@resend.dev",
+            "from": "Drivft Reservaciones <reservaciones@getdrivftllc.com>",
             "to": destinatario,
             "subject": "Tu reservacion esta confirmada",
             "html": f"""
