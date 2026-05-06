@@ -11,6 +11,8 @@ from cliente_config import (
     SOBRE_NOSOTROS_TITULO, SOBRE_NOSOTROS_TEXTO, STATS,
     FOTO_HERO, FOTO_NOSOTROS, FOTOS_GALERIA,
     GOOGLE_MAPS_EMBED,
+    FAQ, CHATBOT_BIENVENIDA_ES, CHATBOT_BIENVENIDA_EN,
+    CHATBOT_NO_ENTIENDO_ES, CHATBOT_NO_ENTIENDO_EN,
 )
 import json, os
 from datetime import datetime
@@ -55,8 +57,9 @@ def _render_index():
         "{{COLOR_SECUNDARIO}}":   COLOR_SECUNDARIO,
         "{{COLOR_FONDO_INICIO}}": COLOR_FONDO_INICIO,
         "{{COLOR_FONDO_FIN}}":    COLOR_FONDO_FIN,
-        "{{SERVICIOS_OPTIONS}}":  opciones_servicios,
-        "{{HORAS_OPTIONS}}":      opciones_horas,
+        "{{SERVICIOS_OPTIONS}}":     opciones_servicios,
+        "{{HORAS_OPTIONS}}":         opciones_horas,
+        "{{CHATBOT_BIENVENIDA_ES}}": CHATBOT_BIENVENIDA_ES,
     }
 
     for marcador, valor in reemplazos.items():
@@ -131,6 +134,7 @@ def _render_web():
         "{{GALERIA_FOTOS}}":          galeria_html,
         "{{STATS_HTML}}":             stats_html,
         "{{GOOGLE_MAPS_EMBED}}":      GOOGLE_MAPS_EMBED,
+        "{{CHATBOT_BIENVENIDA_ES}}":  CHATBOT_BIENVENIDA_ES,
     }
 
     for marcador, valor in reemplazos.items():
@@ -397,6 +401,47 @@ def panel():
 </html>
 """
     return html
+
+
+# ─── RUTA 4: Chatbot bilingüe ─────────────────────────────
+@app.route("/chat", methods=["POST"])
+def chat():
+    data    = request.json or {}
+    mensaje = data.get("mensaje", "").strip().lower()
+
+    if not mensaje:
+        return jsonify({"respuesta": CHATBOT_BIENVENIDA_ES, "idioma": "es"})
+
+    # ── Detectar idioma ──────────────────────────────────
+    _en = {"what","how","where","when","price","cost","book","service",
+           "hello","hi","hours","open","location","do","can","help","have",
+           "offer","time","schedule","phone","call","contact","address"}
+    _es = {"qué","que","cómo","como","dónde","donde","cuándo","cuando",
+           "precio","reservar","hola","horario","servicio","ubicación",
+           "cuanto","cuánto","tienen","hacen","ofrecen","llamar","teléfono"}
+
+    palabras = set(mensaje.replace("?","").replace("!","").replace(",","").split())
+    score_en = len(palabras & _en)
+    score_es = len(palabras & _es)
+    if any(c in mensaje for c in "áéíóúñ¿¡"):
+        score_es += 2
+    idioma = "en" if score_en > score_es else "es"
+
+    # ── Saludos ──────────────────────────────────────────
+    _saludos = {"hola","buenas","buenos","saludos","hello","hi","hey","good"}
+    if palabras & _saludos:
+        bienvenida = CHATBOT_BIENVENIDA_EN if idioma == "en" else CHATBOT_BIENVENIDA_ES
+        return jsonify({"respuesta": bienvenida, "idioma": idioma})
+
+    # ── Buscar en FAQ ────────────────────────────────────
+    for entrada in FAQ:
+        keywords = entrada[f"keywords_{idioma}"]
+        if any(kw in mensaje for kw in keywords):
+            return jsonify({"respuesta": entrada[f"respuesta_{idioma}"], "idioma": idioma})
+
+    # ── Fallback ─────────────────────────────────────────
+    no_entiendo = CHATBOT_NO_ENTIENDO_EN if idioma == "en" else CHATBOT_NO_ENTIENDO_ES
+    return jsonify({"respuesta": no_entiendo, "idioma": idioma})
 
 
 if __name__ == "__main__":
