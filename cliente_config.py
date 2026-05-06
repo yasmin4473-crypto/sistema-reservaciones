@@ -49,3 +49,23 @@ GOOGLE_MAPS_EMBED = ""
 
 EMAIL_FROM      = "reservaciones@getdrivftllc.com"
 EMAIL_FROM_NAME = "Drivft LLC Reservaciones"
+# Chatbot
+FAQ = {
+    "precios": "Nuestros servicios tienen precios competitivos. Contactanos para mas informacion.",
+    "prices": "Our services have competitive prices. Contact us for more information.",
+    "horario": "Estamos disponibles de lunes a viernes de 9am a 6pm.",
+    "hours": "We are available Monday to Friday from 9am to 6pm.",
+    "ubicacion": f"Estamos ubicados en {NEGOCIO_DIRECCION}.",
+    "location": f"We are located in {NEGOCIO_DIRECCION}.",
+    "servicios": f"Ofrecemos: {', '.join(SERVICIOS)}.",
+    "services": f"We offer: {', '.join(SERVICIOS)}.",
+    "reservar": "Puedes reservar usando el formulario en esta pagina o por WhatsApp.",
+    "book": "You can book using the form on this page or via WhatsApp.",
+    "telefono": f"Puedes contactarnos al {NEGOCIO_TELEFONO}.",
+    "phone": f"You can contact us at {NEGOCIO_TELEFONO}.",
+}
+
+CHATBOT_BIENVENIDA_ES = f"Hola! Soy el asistente de {NEGOCIO_NOMBRE}. Como puedo ayudarte?"
+CHATBOT_BIENVENIDA_EN = f"Hi! I'm the {NEGOCIO_NOMBRE} assistant. How can I help you?"
+CHATBOT_NO_ENTIENDO_ES = "No entendi tu pregunta. Puedes preguntarme sobre: precios, horarios, servicios, ubicacion o como reservar."
+CHATBOT_NO_ENTIENDO_EN = "I didn't understand. You can ask me about: prices, hours, services, location or how to book."
