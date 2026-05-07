@@ -685,7 +685,7 @@ def pagar():
                     btn.disabled = false;
                     btn.textContent = 'Reintentar';
                 }} else {{
-                    window.location.href = '/pago-exitoso?nombre=' + nombre + '&paquete={paquete}&email=' + email;
+                    window.location.href = '/pago-exitoso?nombre=' + nombre + '&paquete={paquete}&email=' + encodeURIComponent(email);
                 }}
             }});
         </script>
