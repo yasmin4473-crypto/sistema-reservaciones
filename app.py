@@ -574,16 +574,26 @@ def chat():
         return jsonify({"respuesta": CHATBOT_BIENVENIDA_ES, "idioma": "es"})
 
     # ── Detectar idioma ──────────────────────────────────
-    _en = {"what","how","where","when","price","cost","book","service",
-           "hello","hi","hours","open","location","do","can","help","have",
-           "offer","time","schedule","phone","call","contact","address"}
+    _en = {"what","how","where","when","price","pricing","cost","book","booking",
+           "hello","hi","hey","hours","open","location","do","can","help","have",
+           "offer","time","schedule","phone","call","contact","address",
+           "service","services","info","information","need","want","tell","know"}
     _es = {"qué","que","cómo","como","dónde","donde","cuándo","cuando",
-           "precio","reservar","hola","horario","servicio","ubicación",
-           "cuanto","cuánto","tienen","hacen","ofrecen","llamar","teléfono"}
+           "precio","precios","reservar","hola","horario","servicio","servicios",
+           "ubicación","ubicacion","cuanto","cuánto","tienen","hacen","ofrecen",
+           "llamar","teléfono","telefono","necesito","quiero","saber","ayuda"}
 
     palabras = set(mensaje.replace("?","").replace("!","").replace(",","").split())
     score_en = len(palabras & _en)
     score_es = len(palabras & _es)
+
+    # Substring check contra keywords del FAQ para capturar variantes (ej. "pricing" → "price")
+    for entrada in FAQ:
+        if any(kw in mensaje for kw in entrada["keywords_en"]):
+            score_en += 1
+        if any(kw in mensaje for kw in entrada["keywords_es"]):
+            score_es += 1
+
     if any(c in mensaje for c in "áéíóúñ¿¡"):
         score_es += 2
     idioma = "en" if score_en > score_es else "es"
