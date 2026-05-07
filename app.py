@@ -305,7 +305,8 @@ def landing():
 
 @app.route("/")
 def inicio():
-    return _render_index()
+    from flask import redirect
+    return redirect("/landing")
 
 
 # ─── RUTA 1: Formulario web ───────────────────────────────
