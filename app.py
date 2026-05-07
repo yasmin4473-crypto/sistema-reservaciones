@@ -594,12 +594,21 @@ def chat():
     data    = request.json or {}
     mensaje = data.get("mensaje", "").strip()
 
+    # ── DEBUG ────────────────────────────────────────────
+    key = _OPENROUTER_API_KEY
+    print(f"[CHAT] mensaje='{mensaje}'")
+    print(f"[CHAT] OPENROUTER_API_KEY={'SET ('+key[:8]+'...)' if key else 'NO CONFIGURADA'}")
+    # ─────────────────────────────────────────────────────
+
     if not mensaje:
+        print("[CHAT] mensaje vacío → bienvenida")
         return jsonify({"respuesta": CHATBOT_BIENVENIDA_ES, "idioma": "es"})
 
     if not _OPENROUTER_API_KEY:
+        print("[CHAT] API key ausente → fallback")
         return jsonify({"respuesta": "El chatbot no está configurado aún. Escríbenos a " + NEGOCIO_EMAIL, "idioma": "es"})
 
+    print("[CHAT] Llamando a OpenRouter...")
     try:
         payload = json.dumps({
             "model": "meta-llama/llama-3.3-70b-instruct:free",
@@ -626,10 +635,11 @@ def chat():
             resultado = json.loads(resp.read().decode("utf-8"))
 
         respuesta = resultado["choices"][0]["message"]["content"].strip()
+        print(f"[CHAT] OpenRouter OK → '{respuesta[:60]}...'")
         return jsonify({"respuesta": respuesta, "idioma": "auto"})
 
     except Exception as e:
-        print(f"OpenRouter error: {e}")
+        print(f"[CHAT] OpenRouter ERROR: {type(e).__name__}: {e}")
         return jsonify({"respuesta": CHATBOT_NO_ENTIENDO_ES, "idioma": "es"})
 
 
