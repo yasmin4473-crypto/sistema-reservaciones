@@ -297,6 +297,12 @@ def web():
     return _render_web()
 
 
+@app.route("/landing")
+def landing():
+    with open("landing.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @app.route("/")
 def inicio():
     return _render_index()
