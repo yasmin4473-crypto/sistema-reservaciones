@@ -478,7 +478,7 @@
     <div class="hero-btns">
       <a href="#servicios" class="btn-primary" data-es>Ver paquetes →</a>
       <a href="#servicios" class="btn-primary" data-en>See packages →</a>
-      <a href="#demo" class="btn-outline" data-es>🖥 Ver demo en vivo</a>
+      <a href="/demo" class="btn-outline" data-es>🖥 Ver demo en vivo</a>
       <a href="#demo" class="btn-outline" data-en>🖥 See live demo</a>
     </div>
     <div class="hero-stats">
@@ -663,8 +663,8 @@
         </div>
       </div>
       <div class="hero-btns" style="justify-content:flex-start">
-        <a href="/" class="btn-primary" target="_blank" data-es>🖥 Probar demo →</a>
-        <a href="/" class="btn-primary" target="_blank" data-en>🖥 Try demo →</a>
+        <a href="/demo" class="btn-primary" target="_blank" data-es>🖥 Probar demo →</a>
+        <a href="/demo" class="btn-primary" target="_blank" data-en>🖥 Try demo →</a>
         <a href="/panel" class="btn-outline" target="_blank" data-es>Ver panel admin</a>
         <a href="/panel" class="btn-outline" target="_blank" data-en>View admin panel</a>
       </div>
@@ -826,7 +826,7 @@
       <h4 data-es>Sistema</h4>
       <h4 data-en>System</h4>
       <ul>
-        <li><a href="/" data-es>Demo de reservaciones</a><a href="/" data-en>Booking demo</a></li>
+        <li><a href="/demo" data-es>Demo de reservaciones</a><a href="/demo" data-en>Booking demo</a></li>
         <li><a href="/panel" data-es>Panel admin</a><a href="/panel" data-en>Admin panel</a></li>
         <li><a href="/web" data-es>Web demo</a><a href="/web" data-en>Web demo</a></li>
       </ul>
@@ -924,6 +924,186 @@
     document.querySelector('nav').style.background =
       window.scrollY > 40 ? 'rgba(10,6,18,0.97)' : 'rgba(10,6,18,0.85)';
   });
+</script>
+
+<!-- ══ CHAT BUBBLE ══════════════════════════════════════════ -->
+<style>
+  #chat-bubble-btn {
+    position:fixed; bottom:24px; right:24px; z-index:9999;
+    width:58px; height:58px; border-radius:50%; border:none; cursor:pointer;
+    background:linear-gradient(135deg,#5C3D8F,#7C3AED);
+    color:white; font-size:26px; box-shadow:0 4px 20px rgba(0,0,0,0.3);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform 0.2s, box-shadow 0.2s;
+  }
+  #chat-bubble-btn:hover { transform:scale(1.08); box-shadow:0 6px 28px rgba(92,61,143,0.5); }
+  #chat-window {
+    position:fixed; bottom:92px; right:24px; z-index:9998;
+    width:330px; max-height:480px; border-radius:18px; overflow:hidden;
+    box-shadow:0 12px 48px rgba(0,0,0,0.35); display:none; flex-direction:column;
+    font-family:'Inter',sans-serif; background:#f8f8f8;
+  }
+  #chat-window.open { display:flex; }
+  .chat-header {
+    background:linear-gradient(135deg,#5C3D8F,#7C3AED);
+    color:white; padding:14px 16px; display:flex; align-items:center; gap:10px;
+  }
+  .chat-header-emoji { font-size:24px; }
+  .chat-header-info { flex:1; }
+  .chat-header-name { font-weight:700; font-size:14px; }
+  .chat-online { font-size:11px; opacity:0.85; display:flex; align-items:center; gap:4px; }
+  .chat-online::before {
+    content:''; display:inline-block; width:7px; height:7px;
+    border-radius:50%; background:#6bff8a;
+  }
+  .chat-close {
+    background:none; border:none; color:white; font-size:20px; cursor:pointer;
+    padding:2px 6px; border-radius:6px; opacity:0.85; transition:opacity 0.15s;
+  }
+  .chat-close:hover { opacity:1; }
+  .chat-messages {
+    flex:1; overflow-y:auto; padding:14px 12px; display:flex;
+    flex-direction:column; gap:10px; max-height:310px;
+  }
+  .chat-msg {
+    max-width:82%; padding:9px 13px; border-radius:14px;
+    font-size:13px; line-height:1.5; word-wrap:break-word;
+  }
+  .chat-msg.bot {
+    background:white; color:#222; border-bottom-left-radius:4px;
+    align-self:flex-start; box-shadow:0 1px 4px rgba(0,0,0,0.09);
+  }
+  .chat-msg.user {
+    background:linear-gradient(135deg,#5C3D8F,#7C3AED);
+    color:white; border-bottom-right-radius:4px; align-self:flex-end;
+  }
+  .chat-typing {
+    display:none; align-self:flex-start; background:white;
+    border-radius:14px; border-bottom-left-radius:4px;
+    padding:10px 14px; box-shadow:0 1px 4px rgba(0,0,0,0.09);
+  }
+  .chat-typing span {
+    display:inline-block; width:7px; height:7px; border-radius:50%;
+    background:#5C3D8F; margin:0 2px; animation:chatDot 1.2s infinite;
+  }
+  .chat-typing span:nth-child(2) { animation-delay:0.2s; }
+  .chat-typing span:nth-child(3) { animation-delay:0.4s; }
+  @keyframes chatDot {
+    0%,80%,100% { transform:translateY(0); opacity:0.4; }
+    40%          { transform:translateY(-5px); opacity:1; }
+  }
+  .chat-input-row {
+    display:flex; gap:8px; padding:10px 12px;
+    background:white; border-top:1px solid #eee;
+  }
+  .chat-input-row input {
+    flex:1; border:1.5px solid #e0e0e0; border-radius:20px;
+    padding:8px 14px; font-size:13px; outline:none;
+    font-family:'Inter',sans-serif; transition:border 0.2s;
+  }
+  .chat-input-row input:focus { border-color:#5C3D8F; }
+  .chat-send {
+    width:36px; height:36px; border-radius:50%; border:none; cursor:pointer;
+    background:linear-gradient(135deg,#5C3D8F,#7C3AED);
+    color:white; font-size:16px; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; transition:opacity 0.2s;
+  }
+  .chat-send:hover { opacity:0.85; }
+</style>
+
+<button id="chat-bubble-btn" aria-label="Abrir chat">💬</button>
+
+<div id="chat-window">
+  <div class="chat-header">
+    <span class="chat-header-emoji">⚡</span>
+    <div class="chat-header-info">
+      <div class="chat-header-name">Drivft LLC</div>
+      <div class="chat-online" id="chat-status-label">En línea</div>
+    </div>
+    <button class="chat-close" id="chat-close" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-typing" id="chat-typing">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." maxlength="300">
+    <button class="chat-send" id="chat-send" aria-label="Enviar">➤</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const BIENVENIDA = {
+    es: '¡Hola! 👋 Soy el asistente de Drivft LLC. ¿En qué te puedo ayudar? Pregúntame sobre nuestros paquetes, precios o cómo funciona el sistema.',
+    en: 'Hi! 👋 I\'m the Drivft LLC assistant. How can I help you? Ask me about our packages, pricing, or how the system works.',
+  };
+  const btn    = document.getElementById('chat-bubble-btn');
+  const win    = document.getElementById('chat-window');
+  const msgs   = document.getElementById('chat-messages');
+  const typing = document.getElementById('chat-typing');
+  const input  = document.getElementById('chat-input');
+  const send   = document.getElementById('chat-send');
+  const close  = document.getElementById('chat-close');
+  const status = document.getElementById('chat-status-label');
+  let opened   = false;
+
+  function currentLang() {
+    return document.body.classList.contains('en') ? 'en' : 'es';
+  }
+
+  function addMsg(text, who) {
+    const d = document.createElement('div');
+    d.className = 'chat-msg ' + who;
+    d.textContent = text;
+    msgs.insertBefore(d, typing);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function showTyping() { typing.style.display = 'flex'; msgs.scrollTop = msgs.scrollHeight; }
+  function hideTyping() { typing.style.display = 'none'; }
+
+  async function sendMsg() {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    addMsg(text, 'user');
+    showTyping();
+    try {
+      const r = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensaje: text })
+      });
+      const data = await r.json();
+      hideTyping();
+      addMsg(data.respuesta || '...', 'bot');
+    } catch {
+      hideTyping();
+      addMsg('⚠️ Sin conexión. Intenta de nuevo.', 'bot');
+    }
+  }
+
+  btn.addEventListener('click', () => {
+    const isOpen = win.classList.toggle('open');
+    btn.textContent = isOpen ? '✕' : '💬';
+    status.textContent = currentLang() === 'en' ? 'Online' : 'En línea';
+    if (isOpen && !opened) {
+      opened = true;
+      setTimeout(() => { showTyping(); }, 400);
+      setTimeout(() => { hideTyping(); addMsg(BIENVENIDA[currentLang()], 'bot'); }, 1400);
+    }
+  });
+
+  close.addEventListener('click', () => {
+    win.classList.remove('open');
+    btn.textContent = '💬';
+  });
+
+  send.addEventListener('click', sendMsg);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
+})();
 </script>
 </body>
 </html>

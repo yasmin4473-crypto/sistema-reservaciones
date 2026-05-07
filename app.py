@@ -303,6 +303,11 @@ def landing():
         return f.read()
 
 
+@app.route("/demo")
+def demo():
+    return _render_index()
+
+
 @app.route("/")
 def inicio():
     from flask import redirect
