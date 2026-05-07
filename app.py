@@ -608,39 +608,71 @@ def chat():
         print("[CHAT] API key ausente → fallback")
         return jsonify({"respuesta": "El chatbot no está configurado aún. Escríbenos a " + NEGOCIO_EMAIL, "idioma": "es"})
 
-    print("[CHAT] Llamando a OpenRouter...")
-    try:
-        payload = json.dumps({
-            "model": "meta-llama/llama-3.3-70b-instruct:free",
-            "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user",   "content": mensaje},
-            ],
-            "max_tokens": 120,
-            "temperature": 0.5,
-        }).encode("utf-8")
+    payload = json.dumps({
+        "model": "meta-llama/llama-3.2-3b-instruct:free",
+        "messages": [
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user",   "content": mensaje},
+        ],
+        "max_tokens": 120,
+        "temperature": 0.5,
+    }).encode("utf-8")
 
-        req = _urllib_req.Request(
-            "https://openrouter.ai/api/v1/chat/completions",
-            data=payload,
-            headers={
-                "Authorization": f"Bearer {_OPENROUTER_API_KEY}",
-                "Content-Type":  "application/json",
-                "HTTP-Referer":  "https://getdrivftllc.com",
-                "X-Title":       NEGOCIO_NOMBRE,
-            },
-            method="POST",
-        )
-        with _urllib_req.urlopen(req, timeout=10) as resp:
-            resultado = json.loads(resp.read().decode("utf-8"))
+    for intento in range(1, 3):
+        print(f"[CHAT] Llamando a OpenRouter (intento {intento}/2)...")
+        try:
+            req = _urllib_req.Request(
+                "https://openrouter.ai/api/v1/chat/completions",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {_OPENROUTER_API_KEY}",
+                    "Content-Type":  "application/json",
+                    "HTTP-Referer":  "https://getdrivftllc.com",
+                    "X-Title":       NEGOCIO_NOMBRE,
+                },
+                method="POST",
+            )
+            with _urllib_req.urlopen(req, timeout=10) as resp:
+                resultado = json.loads(resp.read().decode("utf-8"))
 
-        respuesta = resultado["choices"][0]["message"]["content"].strip()
-        print(f"[CHAT] OpenRouter OK → '{respuesta[:60]}...'")
-        return jsonify({"respuesta": respuesta, "idioma": "auto"})
+            respuesta = resultado["choices"][0]["message"]["content"].strip()
+            print(f"[CHAT] OpenRouter OK → '{respuesta[:60]}...'")
+            return jsonify({"respuesta": respuesta, "idioma": "auto"})
 
-    except Exception as e:
-        print(f"[CHAT] OpenRouter ERROR: {type(e).__name__}: {e}")
-        return jsonify({"respuesta": CHATBOT_NO_ENTIENDO_ES, "idioma": "es"})
+        except _urllib_req.HTTPError as e:
+            if e.code == 429:
+                print(f"[CHAT] 429 rate limit (intento {intento}/2) — {'reintentando en 2s' if intento < 2 else 'usando fallback'}")
+                if intento < 2:
+                    import time; time.sleep(2)
+                    continue
+            else:
+                print(f"[CHAT] HTTP {e.code}: {e}")
+            break
+        except Exception as e:
+            print(f"[CHAT] OpenRouter ERROR: {type(e).__name__}: {e}")
+            break
+
+    # ── Fallback: respuestas predefinidas del FAQ ────────
+    print("[CHAT] Usando fallback FAQ predefinido")
+    mensaje_lower = mensaje.lower()
+    _en = {"what","how","where","when","price","pricing","cost","book","booking",
+           "hello","hi","hey","hours","open","location","service","services",
+           "phone","call","contact","help","info","need","want"}
+    palabras = set(mensaje_lower.replace("?","").replace("!","").replace(",","").split())
+    score_en = len(palabras & _en)
+    score_es = 2 if any(c in mensaje_lower for c in "áéíóúñ¿¡") else 0
+    for entrada in FAQ:
+        if any(kw in mensaje_lower for kw in entrada["keywords_en"]): score_en += 1
+        if any(kw in mensaje_lower for kw in entrada["keywords_es"]): score_es += 1
+    idioma = "en" if score_en > score_es else "es"
+
+    for entrada in FAQ:
+        kws = entrada[f"keywords_{idioma}"]
+        if any(kw in mensaje_lower for kw in kws):
+            return jsonify({"respuesta": entrada[f"respuesta_{idioma}"], "idioma": idioma})
+
+    no_entiendo = CHATBOT_NO_ENTIENDO_EN if idioma == "en" else CHATBOT_NO_ENTIENDO_ES
+    return jsonify({"respuesta": no_entiendo, "idioma": idioma})
 
 
 # ─── PAGOS CON STRIPE ────────────────────────────────────
