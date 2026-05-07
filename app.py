@@ -565,54 +565,72 @@ def panel():
 
 
 # ─── RUTA 4: Chatbot bilingüe ─────────────────────────────
+import urllib.request as _urllib_req
+
+_OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+
+_SYSTEM_PROMPT = f"""You are a friendly, concise assistant for {NEGOCIO_NOMBRE} — {NEGOCIO_SLOGAN}.
+
+Business info:
+- Name: {NEGOCIO_NOMBRE}
+- Address: {NEGOCIO_DIRECCION}
+- Phone: {NEGOCIO_TELEFONO}
+- Email: {NEGOCIO_EMAIL}
+- Services: {', '.join(SERVICIOS)}
+- Hours: Monday–Friday, 9am–6pm EST
+- Packages: Basic $500 setup + $175/mo | Standard $900 setup + $275/mo | Professional $2,000 setup + $350/mo
+- Booking link: /demo
+
+Rules:
+1. Always reply in the same language the user writes in.
+2. Be concise — 2 to 3 sentences maximum.
+3. If asked about booking or reservations, share the link: /demo
+4. If you don't know something, say to contact us at {NEGOCIO_EMAIL}.
+5. Never make up information not listed above.
+"""
+
 @app.route("/chat", methods=["POST"])
 def chat():
     data    = request.json or {}
-    mensaje = data.get("mensaje", "").strip().lower()
+    mensaje = data.get("mensaje", "").strip()
 
     if not mensaje:
         return jsonify({"respuesta": CHATBOT_BIENVENIDA_ES, "idioma": "es"})
 
-    # ── Detectar idioma ──────────────────────────────────
-    _en = {"what","how","where","when","price","pricing","cost","book","booking",
-           "hello","hi","hey","hours","open","location","do","can","help","have",
-           "offer","time","schedule","phone","call","contact","address",
-           "service","services","info","information","need","want","tell","know"}
-    _es = {"qué","que","cómo","como","dónde","donde","cuándo","cuando",
-           "precio","precios","reservar","hola","horario","servicio","servicios",
-           "ubicación","ubicacion","cuanto","cuánto","tienen","hacen","ofrecen",
-           "llamar","teléfono","telefono","necesito","quiero","saber","ayuda"}
+    if not _OPENROUTER_API_KEY:
+        return jsonify({"respuesta": "El chatbot no está configurado aún. Escríbenos a " + NEGOCIO_EMAIL, "idioma": "es"})
 
-    palabras = set(mensaje.replace("?","").replace("!","").replace(",","").split())
-    score_en = len(palabras & _en)
-    score_es = len(palabras & _es)
+    try:
+        payload = json.dumps({
+            "model": "meta-llama/llama-3.3-70b-instruct:free",
+            "messages": [
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user",   "content": mensaje},
+            ],
+            "max_tokens": 120,
+            "temperature": 0.5,
+        }).encode("utf-8")
 
-    # Substring check contra keywords del FAQ para capturar variantes (ej. "pricing" → "price")
-    for entrada in FAQ:
-        if any(kw in mensaje for kw in entrada["keywords_en"]):
-            score_en += 1
-        if any(kw in mensaje for kw in entrada["keywords_es"]):
-            score_es += 1
+        req = _urllib_req.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {_OPENROUTER_API_KEY}",
+                "Content-Type":  "application/json",
+                "HTTP-Referer":  "https://getdrivftllc.com",
+                "X-Title":       NEGOCIO_NOMBRE,
+            },
+            method="POST",
+        )
+        with _urllib_req.urlopen(req, timeout=10) as resp:
+            resultado = json.loads(resp.read().decode("utf-8"))
 
-    if any(c in mensaje for c in "áéíóúñ¿¡"):
-        score_es += 2
-    idioma = "en" if score_en > score_es else "es"
+        respuesta = resultado["choices"][0]["message"]["content"].strip()
+        return jsonify({"respuesta": respuesta, "idioma": "auto"})
 
-    # ── Saludos ──────────────────────────────────────────
-    _saludos = {"hola","buenas","buenos","saludos","hello","hi","hey","good"}
-    if palabras & _saludos:
-        bienvenida = CHATBOT_BIENVENIDA_EN if idioma == "en" else CHATBOT_BIENVENIDA_ES
-        return jsonify({"respuesta": bienvenida, "idioma": idioma})
-
-    # ── Buscar en FAQ ────────────────────────────────────
-    for entrada in FAQ:
-        keywords = entrada[f"keywords_{idioma}"]
-        if any(kw in mensaje for kw in keywords):
-            return jsonify({"respuesta": entrada[f"respuesta_{idioma}"], "idioma": idioma})
-
-    # ── Fallback ─────────────────────────────────────────
-    no_entiendo = CHATBOT_NO_ENTIENDO_EN if idioma == "en" else CHATBOT_NO_ENTIENDO_ES
-    return jsonify({"respuesta": no_entiendo, "idioma": idioma})
+    except Exception as e:
+        print(f"OpenRouter error: {e}")
+        return jsonify({"respuesta": CHATBOT_NO_ENTIENDO_ES, "idioma": "es"})
 
 
 # ─── PAGOS CON STRIPE ────────────────────────────────────
