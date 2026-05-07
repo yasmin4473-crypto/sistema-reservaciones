@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Drivft LLC — Automatización Digital para Negocios Latinos</title>
-  <meta name="description" content="Sistemas de reservaciones, chatbots, y automatización para tu negocio. Desde $500.">
+  <title>Drivft LLC — Automatización Digital para Negocios Locales en USA</title>
+  <meta name="description" content="Sistemas de reservaciones, chatbots, y automatización para pequeños negocios locales en USA. Desde $500.">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -468,8 +468,7 @@
   <div class="hero-content">
     <div class="hero-badge">
       <span></span>
-      <span data-es>🇺🇸 Agencia #1 para negocios latinos en USA</span>
-      <span data-en>🇺🇸 #1 Agency for Latino businesses in USA</span>
+      <span id="hero-badge-text">⚡ Automatización digital para negocios locales en USA</span>
     </div>
     <h1>
       <span class="line1" id="hero-line1">Tu negocio merece</span>
@@ -741,8 +740,8 @@
       </div>
       <div class="testimonial-card fade-up">
         <div class="stars">★★★★★</div>
-        <p class="testimonial-text" data-es>"En 48 horas ya tenía mi sistema funcionando. Los pagos online aumentaron mis ventas un 40%. Totalmente recomendado para cualquier negocio latino."</p>
-        <p class="testimonial-text" data-en>"In 48 hours my system was running. Online payments increased my sales by 40%. Totally recommended for any Latino business."</p>
+        <p class="testimonial-text" data-es>"En 48 horas ya tenía mi sistema funcionando. Los pagos online aumentaron mis ventas un 40%. Totalmente recomendado para cualquier negocio local."</p>
+        <p class="testimonial-text" data-en>"In 48 hours my system was running. Online payments increased my sales by 40%. Totally recommended for any local business."</p>
         <div class="testimonial-author">
           <div class="author-avatar">A</div>
           <div>
@@ -795,8 +794,8 @@
 <div id="cta-band">
   <h2 class="section-title" data-es>¿Listo para automatizar<br>tu negocio?</h2>
   <h2 class="section-title" data-en>Ready to automate<br>your business?</h2>
-  <p class="section-sub" data-es>Únete a más de 50 negocios latinos que ya confían en Drivft. Sin contratos largos, sin complicaciones.</p>
-  <p class="section-sub" data-en>Join 50+ Latino businesses already trusting Drivft. No long contracts, no complications.</p>
+  <p class="section-sub" data-es>Únete a más de 50 negocios locales que ya confían en Drivft. Sin contratos largos, sin complicaciones.</p>
+  <p class="section-sub" data-en>Join 50+ local businesses already trusting Drivft. No long contracts, no complications.</p>
   <div class="hero-btns">
     <a href="#servicios" class="btn-white" data-es>Ver paquetes →</a>
     <a href="#servicios" class="btn-white" data-en>See packages →</a>
@@ -810,8 +809,8 @@
   <div class="footer-grid">
     <div class="footer-brand">
       <span class="nav-logo">⚡ Drivft LLC</span>
-      <p data-es>Automatización digital para negocios latinos en USA. Reservaciones, chatbots, pagos y más — todo en uno.</p>
-      <p data-en>Digital automation for Latino businesses in the USA. Bookings, chatbots, payments and more — all in one.</p>
+      <p data-es>Automatización digital para negocios locales en USA. Reservaciones, chatbots, pagos y más — todo en uno.</p>
+      <p data-en>Digital automation for local businesses in the USA. Bookings, chatbots, payments and more — all in one.</p>
       <div class="footer-social">
         <span class="social-btn" title="Instagram">📸</span>
         <span class="social-btn" title="WhatsApp">💬</span>
@@ -856,8 +855,8 @@
   </div>
   <div class="footer-bottom">
     <p>© 2026 Drivft LLC. <span data-es>Todos los derechos reservados.</span><span data-en>All rights reserved.</span></p>
-    <p data-es>Hecho con ❤️ para negocios latinos</p>
-    <p data-en>Made with ❤️ for Latino businesses</p>
+    <p data-es>Hecho con ❤️ para negocios locales en USA</p>
+    <p data-en>Made with ❤️ for local businesses in USA</p>
   </div>
 </footer>
 
@@ -891,6 +890,10 @@
   function updateHeroLine1() {
     const line1 = document.getElementById('hero-line1');
     line1.textContent = rotateLang() === 'en' ? 'Your business deserves' : 'Tu negocio merece';
+    const badge = document.getElementById('hero-badge-text');
+    badge.textContent = rotateLang() === 'en'
+      ? '⚡ Digital automation for local businesses in USA'
+      : '⚡ Automatización digital para negocios locales en USA';
   }
 
   function rotateWord() {
