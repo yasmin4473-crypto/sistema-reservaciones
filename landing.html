@@ -121,11 +121,18 @@
       margin-bottom:24px;
     }
     h1 .line1 { display:block; color:var(--text); }
-    h1 .line2 {
+    .rotating-word-wrap {
       display:block;
+      min-height:1.1em;
+    }
+    .rotating-word {
+      display:inline-block;
       background:linear-gradient(135deg,#A78BFA 0%,#7C3AED 40%,#C084FC 100%);
       -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      opacity:1;
+      transition:opacity 0.35s ease;
     }
+    .rotating-word.fade-out { opacity:0; }
     .hero-sub {
       font-size:clamp(16px,2.2vw,20px); color:var(--muted);
       line-height:1.7; max-width:600px; margin:0 auto 40px;
@@ -465,10 +472,8 @@
       <span data-en>🇺🇸 #1 Agency for Latino businesses in USA</span>
     </div>
     <h1>
-      <span class="line1" data-es>Tu negocio merece</span>
-      <span class="line1" data-en>Your business deserves</span>
-      <span class="line2" data-es>tecnología de nivel</span>
-      <span class="line2" data-en>enterprise-level tech</span>
+      <span class="line1" id="hero-line1">Tu negocio merece</span>
+      <span class="rotating-word-wrap"><span class="rotating-word" id="rotating-word">automatización</span></span>
     </h1>
     <p class="hero-sub" data-es>
       Sistemas de reservaciones, chatbots 24/7, pagos online y automatización completa — todo en uno, desde $500. Sin necesidad de saber tecnología.
@@ -864,11 +869,40 @@
       b.classList.toggle('active', b.textContent === lang.toUpperCase());
     });
     localStorage.setItem('drivft-lang', lang);
+    updateHeroLine1();
   }
   (function() {
     const saved = localStorage.getItem('drivft-lang');
     if (saved === 'en') setLang('en');
   })();
+
+  // ── ROTATING WORD ──
+  const words = {
+    es: ['automatización', 'reservaciones', 'pagos online', 'más clientes', 'tecnología'],
+    en: ['automation',     'online booking', 'online payments', 'more clients', 'technology'],
+  };
+  let wordIndex = 0;
+  const el = document.getElementById('rotating-word');
+
+  function rotateLang() {
+    return document.body.classList.contains('en') ? 'en' : 'es';
+  }
+
+  function updateHeroLine1() {
+    const line1 = document.getElementById('hero-line1');
+    line1.textContent = rotateLang() === 'en' ? 'Your business deserves' : 'Tu negocio merece';
+  }
+
+  function rotateWord() {
+    el.classList.add('fade-out');
+    setTimeout(() => {
+      wordIndex = (wordIndex + 1) % words.es.length;
+      el.textContent = words[rotateLang()][wordIndex];
+      el.classList.remove('fade-out');
+    }, 350);
+  }
+
+  setInterval(rotateWord, 2400);
 
   // ── MOBILE MENU ──
   function toggleMenu() {
