@@ -609,7 +609,7 @@ def chat():
         return jsonify({"respuesta": "El chatbot no está configurado aún. Escríbenos a " + NEGOCIO_EMAIL, "idioma": "es"})
 
     payload = json.dumps({
-        "model": "meta-llama/llama-3.2-3b-instruct:free",
+        "model": "openai/gpt-4o-mini",
         "messages": [
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user",   "content": mensaje},
