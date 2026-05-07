@@ -18,6 +18,153 @@ import json, os
 from datetime import datetime
 import stripe
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from io import BytesIO
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+
+def generar_factura_pdf(nombre, email, paquete, monto, numero_factura):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Header
+    header_style = ParagraphStyle('header', fontSize=24, textColor=colors.HexColor('#5C3D8F'), spaceAfter=4)
+    story.append(Paragraph("DRIVFT LLC", header_style))
+    story.append(Paragraph("Digital Services & Automation Agency", styles['Normal']))
+    story.append(Paragraph("contact@getdrivftllc.com | getdrivftllc.com", styles['Normal']))
+    story.append(Spacer(1, 20))
+
+    # Linea separadora
+    story.append(Table([['']], colWidths=[500], rowHeights=[2], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#5C3D8F'))])))
+    story.append(Spacer(1, 20))
+
+    # Titulo
+    title_style = ParagraphStyle('title', fontSize=18, textColor=colors.HexColor('#1A1A2E'), spaceAfter=20)
+    story.append(Paragraph("INVOICE / FACTURA", title_style))
+
+    # Info de la factura
+    from datetime import datetime
+    fecha = datetime.now().strftime("%B %d, %Y")
+    info_data = [
+        ['Invoice Number / Numero:', f'#{numero_factura}'],
+        ['Date / Fecha:', fecha],
+        ['Client / Cliente:', nombre],
+        ['Email:', email],
+        ['Package / Paquete:', paquete.title()],
+    ]
+    info_table = Table(info_data, colWidths=[200, 300])
+    info_table.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 11),
+        ('ROWBACKGROUNDS', (0,0), (-1,-1), [colors.HexColor('#F5F0FF'), colors.white]),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('TEXTCOLOR', (0,0), (0,-1), colors.HexColor('#5C3D8F')),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 30))
+
+    # Detalle del servicio
+    story.append(Paragraph("Services / Servicios", ParagraphStyle('sub', fontSize=14, textColor=colors.HexColor('#5C3D8F'), spaceAfter=10)))
+    
+    precios = {
+        "basic": {"setup": 500, "mensual": 175, "desc": "Booking system + Dashboard + Email + Chatbot"},
+        "standard": {"setup": 900, "mensual": 275, "desc": "Basic + WhatsApp + SMS + Monthly Reports"},
+        "professional": {"setup": 2000, "mensual": 350, "desc": "Standard + Website + Google Reviews + Domain"},
+    }
+    p = precios.get(paquete, precios["basic"])
+
+    service_data = [
+        ['Description', 'Amount'],
+        [f'{paquete.title()} Package - Setup Fee\n{p["desc"]}', f'${monto:,.2f}'],
+        [f'Monthly maintenance (starting next month)', f'${p["mensual"]}/mo'],
+    ]
+    service_table = Table(service_data, colWidths=[350, 150])
+    service_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#5C3D8F')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 11),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F5F0FF')]),
+        ('PADDING', (0,0), (-1,-1), 10),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D1C4E9')),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+    ]))
+    story.append(service_table)
+    story.append(Spacer(1, 20))
+
+    # Total
+    total_data = [['TOTAL PAID / TOTAL PAGADO', f'${monto:,.2f}']]
+    total_table = Table(total_data, colWidths=[350, 150])
+    total_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#5C3D8F')),
+        ('TEXTCOLOR', (0,0), (-1,-1), colors.white),
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 13),
+        ('PADDING', (0,0), (-1,-1), 12),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+    ]))
+    story.append(total_table)
+    story.append(Spacer(1, 40))
+
+    # Footer
+    story.append(Paragraph("Thank you for your business! / Gracias por su preferencia!", ParagraphStyle('footer', fontSize=12, textColor=colors.HexColor('#888888'), alignment=1)))
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("Drivft LLC | contact@getdrivftllc.com | getdrivftllc.com", ParagraphStyle('footer2', fontSize=10, textColor=colors.HexColor('#aaaaaa'), alignment=1)))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def enviar_factura_email(nombre, email_cliente, paquete, monto, numero_factura):
+    try:
+        pdf_buffer = generar_factura_pdf(nombre, email_cliente, paquete, monto, numero_factura)
+        
+        msg = MIMEMultipart()
+        msg['From'] = os.environ.get("GMAIL_USER")
+        msg['To'] = email_cliente
+        msg['Subject'] = f"Invoice #{numero_factura} — Drivft LLC"
+        
+        cuerpo = f"""
+Hola {nombre},
+
+Gracias por elegir Drivft LLC! Tu pago fue procesado exitosamente.
+
+Paquete: {paquete.title()}
+Monto: ${monto:,.2f}
+Factura: #{numero_factura}
+
+Adjunto encontraras tu factura en PDF. Nos pondremos en contacto contigo en menos de 24 horas para comenzar tu proyecto.
+
+Drivft LLC
+contact@getdrivftllc.com
+        """
+        msg.attach(MIMEText(cuerpo, 'plain'))
+        
+        pdf_attachment = MIMEBase('application', 'pdf')
+        pdf_attachment.set_payload(pdf_buffer.read())
+        encoders.encode_base64(pdf_attachment)
+        pdf_attachment.add_header('Content-Disposition', f'attachment; filename=Drivft_Invoice_{numero_factura}.pdf')
+        msg.attach(pdf_attachment)
+        
+        servidor = smtplib.SMTP('smtp.gmail.com', 587)
+        servidor.starttls()
+        servidor.login(os.environ.get("GMAIL_USER"), os.environ.get("GMAIL_PASSWORD"))
+        servidor.send_message(msg)
+        servidor.quit()
+        print(f"Factura enviada a {email_cliente}")
+        return True
+    except Exception as e:
+        print(f"Error enviando factura: {e}")
+        return False
 
 app = Flask(__name__)
 CORS(app)
@@ -538,7 +685,7 @@ def pagar():
                     btn.disabled = false;
                     btn.textContent = 'Reintentar';
                 }} else {{
-                    window.location.href = '/pago-exitoso?nombre=' + nombre + '&paquete={paquete}';
+                    window.location.href = '/pago-exitoso?nombre=' + nombre + '&paquete={paquete}&email=' + email;
                 }}
             }});
         </script>
@@ -569,6 +716,15 @@ def crear_pago():
 def pago_exitoso():
     nombre = request.args.get("nombre", "Cliente")
     paquete = request.args.get("paquete", "basic")
+    email = request.args.get("email", "")
+
+    montos = {"basic": 500, "standard": 900, "professional": 2000}
+    monto = montos.get(paquete, 500)
+    numero_factura = datetime.now().strftime("%Y%m%d%H%M%S")
+
+    if email:
+        enviar_factura_email(nombre, email, paquete, monto, numero_factura)
+
     html = f"""
     <!DOCTYPE html>
     <html lang="es">
@@ -582,6 +738,7 @@ def pago_exitoso():
             .icon{{font-size:64px;margin-bottom:16px}}
             h1{{font-size:24px;color:#111;margin-bottom:8px}}
             p{{font-size:15px;color:#888;margin-bottom:24px}}
+            .factura{{font-size:13px;color:#aaa;margin-bottom:20px}}
             a{{display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:8px;text-decoration:none;font-weight:500}}
         </style>
     </head>
@@ -590,6 +747,8 @@ def pago_exitoso():
             <div class="icon">🎉</div>
             <h1>Pago Exitoso!</h1>
             <p>Gracias {nombre}! Tu pago del paquete <strong>{paquete.title()}</strong> fue procesado. Te contactaremos en menos de 24 horas para comenzar tu proyecto.</p>
+            {"<p class='factura'>📧 Tu factura fue enviada a <strong>" + email + "</strong></p>" if email else ""}
+            <p class="factura">Factura #{numero_factura}</p>
             <a href="/">Volver al inicio</a>
         </div>
     </body>

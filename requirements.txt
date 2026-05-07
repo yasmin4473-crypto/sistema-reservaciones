@@ -3,3 +3,4 @@ flask-cors
 twilio==8.10.0
 resend
 stripe
+reportlab
