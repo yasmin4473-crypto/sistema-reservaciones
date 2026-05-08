@@ -4,3 +4,4 @@ twilio==8.10.0
 resend
 stripe
 reportlab
+python-dotenv
