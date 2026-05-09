@@ -5,3 +5,4 @@ resend
 stripe
 reportlab
 python-dotenv
+icalendar
