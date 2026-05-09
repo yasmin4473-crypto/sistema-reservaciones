@@ -407,6 +407,30 @@ def panel():
     web_count = len([r for r in reservaciones if r.get("canal") == "web"])
     wp_count  = len([r for r in reservaciones if r.get("canal") == "whatsapp"])
 
+    # ── Analytics ──────────────────────────────────────────────
+    from collections import Counter
+    from datetime import timedelta as _td
+    hoy_dt     = datetime.now().date()
+    ultimos7   = [(hoy_dt - _td(days=i)) for i in range(6, -1, -1)]
+    dias_keys  = [d.strftime("%Y-%m-%d") for d in ultimos7]
+    dias_lbl   = [d.strftime("%d/%m") for d in ultimos7]
+    conta_dias = {k: 0 for k in dias_keys}
+    for _r in reservaciones:
+        if _r.get("fecha") in conta_dias:
+            conta_dias[_r["fecha"]] += 1
+    chart_labels_js = json.dumps(dias_lbl)
+    chart_data_js   = json.dumps([conta_dias[k] for k in dias_keys])
+
+    serv_cnt = Counter(_r.get("servicio", "") for _r in reservaciones if _r.get("servicio"))
+    top_serv, top_serv_n = serv_cnt.most_common(1)[0] if serv_cnt else ("Sin datos", 0)
+
+    top_canal_label = "WhatsApp" if wp_count > web_count else "Web"
+    top_canal_emoji = "📱" if wp_count > web_count else "🌐"
+    top_canal_n     = max(web_count, wp_count) if (web_count or wp_count) else 0
+
+    hora_cnt = Counter(_r.get("hora", "") for _r in reservaciones if _r.get("hora"))
+    peak_hora, peak_hora_n = hora_cnt.most_common(1)[0] if hora_cnt else ("Sin datos", 0)
+
     c1 = COLOR_PRIMARIO
     c2 = COLOR_SECUNDARIO
 
@@ -418,6 +442,7 @@ def panel():
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{NEGOCIO_NOMBRE} — Panel</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *{{margin:0;padding:0;box-sizing:border-box}}
     body{{font-family:'Inter',sans-serif;background:#FDF8F2;min-height:100vh}}
@@ -498,6 +523,35 @@ def panel():
     </div>
   </div>
 
+  <!-- ── Analytics Section ─────────────────────────────── -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="section-title">📊 Reservaciones — últimos 7 días</div>
+    <div style="position:relative;height:200px;margin-top:14px">
+      <canvas id="barChart"></canvas>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+    <div class="stat" style="border-top-color:#7C3AED">
+      <div class="stat-icon">🏆</div>
+      <div class="stat-val" style="font-size:18px;line-height:1.4;word-break:break-word">{top_serv}</div>
+      <div class="stat-label">Servicio más solicitado</div>
+      <div class="stat-sub">{top_serv_n} reservación(es)</div>
+    </div>
+    <div class="stat" style="border-top-color:#7C3AED">
+      <div class="stat-icon">{top_canal_emoji}</div>
+      <div class="stat-val">{top_canal_label}</div>
+      <div class="stat-label">Canal más usado</div>
+      <div class="stat-sub">{top_canal_n} reservación(es)</div>
+    </div>
+    <div class="stat" style="border-top-color:#7C3AED">
+      <div class="stat-icon">⏰</div>
+      <div class="stat-val" style="font-size:24px">{peak_hora}</div>
+      <div class="stat-label">Hora pico</div>
+      <div class="stat-sub">{peak_hora_n} reservación(es)</div>
+    </div>
+  </div>
+
   <div class="today-card">
     <h2>⏰ Reservas de hoy</h2>
     {"".join(f'''
@@ -559,6 +613,44 @@ def panel():
     btn.classList.add('active');
     filtrar();
   }}
+</script>
+
+<script>
+  (function() {{
+    var ctx = document.getElementById('barChart');
+    if (!ctx) return;
+    new Chart(ctx, {{
+      type: 'bar',
+      data: {{
+        labels: {chart_labels_js},
+        datasets: [{{
+          label: 'Reservaciones',
+          data: {chart_data_js},
+          backgroundColor: 'rgba(92,61,143,0.75)',
+          borderColor: '#5C3D8F',
+          borderWidth: 2,
+          borderRadius: 6,
+          borderSkipped: false
+        }}]
+      }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {{ legend: {{ display: false }} }},
+        scales: {{
+          y: {{
+            beginAtZero: true,
+            ticks: {{ stepSize: 1, color: '#9d8ec4' }},
+            grid:  {{ color: 'rgba(92,61,143,0.1)' }}
+          }},
+          x: {{
+            ticks: {{ color: '#9d8ec4' }},
+            grid:  {{ display: false }}
+          }}
+        }}
+      }}
+    }});
+  }})();
 </script>
 </body>
 </html>
@@ -752,18 +844,18 @@ def pagar():
                     body: JSON.stringify({{paquete: '{paquete}', nombre, email}})
                 }});
                 const data = await res.json();
-                
+
                 if (data.error) {{
                     document.getElementById('error').textContent = data.error;
                     btn.disabled = false;
                     btn.textContent = 'Reintentar';
                     return;
                 }}
-                
+
                 const result = await stripe.confirmCardPayment(data.client_secret, {{
                     payment_method: {{card, billing_details: {{name: nombre, email: email}}}}
                 }});
-                
+
                 if (result.error) {{
                     document.getElementById('error').textContent = result.error.message;
                     btn.disabled = false;
@@ -785,7 +877,7 @@ def crear_pago():
         datos = request.json
         paquete = datos.get("paquete", "basic")
         precios_setup = {"basic": 50000, "standard": 90000, "professional": 200000}
-        
+
         intent = stripe.PaymentIntent.create(
             amount=precios_setup.get(paquete, 50000),
             currency="usd",
@@ -839,6 +931,8 @@ def pago_exitoso():
     </html>
     """
     return html
+
+
 if __name__ == "__main__":
     print(f"{NEGOCIO_EMOJI} {NEGOCIO_NOMBRE} — Sistema corriendo...")
     port = int(os.environ.get("PORT", 5000))
