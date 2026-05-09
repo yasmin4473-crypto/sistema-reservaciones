@@ -93,3 +93,6 @@ CHATBOT_BIENVENIDA_ES = f"Hola! Soy el asistente de {NEGOCIO_NOMBRE}. Como puedo
 CHATBOT_BIENVENIDA_EN = f"Hi! I'm the {NEGOCIO_NOMBRE} assistant. How can I help you?"
 CHATBOT_NO_ENTIENDO_ES = "No entendi tu pregunta. Puedes preguntarme sobre: precios, horarios, servicios, ubicacion o como reservar."
 CHATBOT_NO_ENTIENDO_EN = "I didn't understand. You can ask me about: prices, hours, services, location or how to book."
+
+# URL de Google Maps para solicitar reseñas (pega aquí el link de tu ficha de Google)
+GOOGLE_MAPS_REVIEW_URL = ""  # Ej: "https://g.page/r/XXXXXXXXXX/review"

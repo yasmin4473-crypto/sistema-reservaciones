@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from notificaciones import mandar_email, mandar_whatsapp
+from notificaciones import mandar_email, mandar_whatsapp, mandar_solicitud_resena
 from cliente_config import (
     NEGOCIO_NOMBRE, NEGOCIO_SLOGAN, NEGOCIO_EMOJI,
     NEGOCIO_TELEFONO, NEGOCIO_EMAIL, NEGOCIO_DIRECCION, NEGOCIO_WHATSAPP,
@@ -15,8 +15,9 @@ from cliente_config import (
     GOOGLE_MAPS_EMBED,
     FAQ, CHATBOT_BIENVENIDA_ES, CHATBOT_BIENVENIDA_EN,
     CHATBOT_NO_ENTIENDO_ES, CHATBOT_NO_ENTIENDO_EN,
+    GOOGLE_MAPS_REVIEW_URL,
 )
-import json, os
+import json, os, threading
 from datetime import datetime
 import stripe
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
@@ -331,6 +332,17 @@ def reservar():
 
     if datos.get("email"):
         mandar_email(datos["email"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"])
+
+        # ── Solicitud de reseña 24 h después ────────────────────────
+        if GOOGLE_MAPS_REVIEW_URL:
+            t = threading.Timer(
+                86400,
+                mandar_solicitud_resena,
+                args=[datos["email"], datos["nombre"], NEGOCIO_NOMBRE, GOOGLE_MAPS_REVIEW_URL],
+            )
+            t.daemon = True
+            t.start()
+            print(f"[Reseña] Timer 24h programado para {datos['email']}")
 
     if datos.get("telefono"):
         mandar_whatsapp(datos["telefono"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"])

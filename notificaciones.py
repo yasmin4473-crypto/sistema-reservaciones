@@ -176,6 +176,90 @@ def mandar_email(destinatario, nombre, fecha, hora, servicio):
         return False
 
 
+def mandar_solicitud_resena(destinatario, nombre, negocio_nombre, google_maps_url):
+    """
+    Envía un email 24 h después de la reservación pidiendo una reseña en Google.
+    Se llama desde un threading.Timer en app.py.
+    Si google_maps_url está vacío, no hace nada.
+    """
+    if not google_maps_url:
+        print(f"[Reseña] GOOGLE_MAPS_REVIEW_URL no configurado — email omitido para {destinatario}")
+        return False
+
+    try:
+        html = f"""
+        <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+
+          <!-- Header -->
+          <div style="background:linear-gradient(135deg,#5C3D8F,#7C3AED);padding:32px 36px;text-align:center">
+            <p style="font-size:44px;margin:0 0 12px">⭐</p>
+            <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">¿Cómo fue tu experiencia?</h1>
+            <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:0">{negocio_nombre}</p>
+          </div>
+
+          <!-- Body -->
+          <div style="padding:36px 36px 28px">
+            <p style="font-size:16px;color:#1a1a2e;margin:0 0 16px">
+              Hola <strong>{nombre}</strong> 👋
+            </p>
+            <p style="font-size:15px;color:#4a4a6a;line-height:1.7;margin:0 0 24px">
+              Esperamos que tu visita a <strong>{negocio_nombre}</strong> haya sido excelente.
+              Tu opinión nos ayuda a seguir mejorando y a que más clientes nos puedan encontrar.
+            </p>
+
+            <!-- Estrellas decorativas -->
+            <p style="text-align:center;font-size:28px;letter-spacing:6px;margin:0 0 28px">⭐⭐⭐⭐⭐</p>
+
+            <!-- Botón principal -->
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+              <tr>
+                <td align="center">
+                  <a href="{google_maps_url}" target="_blank"
+                     style="display:inline-block;background:linear-gradient(135deg,#5C3D8F,#7C3AED);color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 36px;border-radius:10px;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(92,61,143,0.4)">
+                    ⭐ Dejar mi reseña en Google
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="padding-top:12px;font-size:12px;color:#9d8ec4">
+                  Solo toma 30 segundos y nos ayuda muchísimo 🙏
+                </td>
+              </tr>
+            </table>
+
+            <!-- Separador -->
+            <div style="height:1px;background:#e9e3ff;margin:0 0 24px"></div>
+
+            <p style="font-size:13px;color:#9d8ec4;line-height:1.6;margin:0">
+              Si tuviste algún inconveniente, responde este email y lo resolvemos de inmediato.
+              Tu satisfacción es nuestra prioridad.
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div style="background:#f9f7ff;padding:20px 36px;text-align:center;border-top:1px solid #e9e3ff">
+            <p style="font-size:12px;color:#9d8ec4;margin:0">
+              {negocio_nombre} · {NEGOCIO_DIRECCION}
+            </p>
+          </div>
+
+        </div>
+        """
+
+        resend.Emails.send({
+            "from": f"{negocio_nombre} <reservaciones@getdrivftllc.com>",
+            "to": destinatario,
+            "subject": f"⭐ ¿Cómo fue tu experiencia en {negocio_nombre}?",
+            "html": html,
+        })
+        print(f"[Reseña] Email enviado a {destinatario}")
+        return True
+
+    except Exception as e:
+        print(f"[Reseña] Error enviando email: {e}")
+        return False
+
+
 def mandar_whatsapp(numero_cliente, nombre, fecha, hora, servicio):
     try:
         cliente = Client(TWILIO_SID, TWILIO_TOKEN)
