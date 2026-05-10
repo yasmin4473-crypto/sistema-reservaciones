@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from notificaciones import mandar_email, mandar_whatsapp, mandar_solicitud_resena
+from notificaciones import mandar_email, mandar_whatsapp, mandar_solicitud_resena, notificar_dueno
 from cliente_config import (
     NEGOCIO_NOMBRE, NEGOCIO_SLOGAN, NEGOCIO_EMOJI,
     NEGOCIO_TELEFONO, NEGOCIO_EMAIL, NEGOCIO_DIRECCION, NEGOCIO_WHATSAPP,
@@ -330,6 +330,9 @@ def reservar():
     reservaciones.append(datos)
     guardar(reservaciones)
 
+    # ── Notificación instantánea al dueño ───────────────────────
+    notificar_dueno(datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"], "web")
+
     if datos.get("email"):
         mandar_email(datos["email"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"])
 
@@ -376,6 +379,10 @@ def whatsapp_entrante():
             }
             reservaciones.append(nueva)
             guardar(reservaciones)
+
+            # ── Notificación instantánea al dueño ───────────────
+            notificar_dueno(nueva["nombre"], nueva["fecha"], nueva["hora"], nueva["servicio"], "whatsapp")
+
             respuesta = (
                 f"{NEGOCIO_EMOJI} *{NEGOCIO_NOMBRE}*\n\n"
                 f"¡Listo {nueva['nombre']}! Tu mesa quedó para el {nueva['fecha']} a las {nueva['hora']}.\n"
@@ -934,8 +941,7 @@ def pago_exitoso():
         <div class="card">
             <div class="icon">🎉</div>
             <h1>Pago Exitoso!</h1>
-            <p>Gracias {nombre}! Tu pago del paquete <strong>{paquete.title()}</strong> fue procesado. Te contactaremos en menos de 24 horas para comenzar tu proyecto.</p>
-            {"<p class='factura'>📧 Tu factura fue enviada a <strong>" + email + "</strong></p>" if email else ""}
+            <p>Gracias {nombre}! Tu pago del paquete <strong>{paquete.title()}</strong> fue procesado exitosamente. Te contactaremos en menos de 24 horas para comenzar tu proyecto.</p>
             <p class="factura">Factura #{numero_factura}</p>
             <a href="/">Volver al inicio</a>
         </div>
@@ -946,6 +952,4 @@ def pago_exitoso():
 
 
 if __name__ == "__main__":
-    print(f"{NEGOCIO_EMOJI} {NEGOCIO_NOMBRE} — Sistema corriendo...")
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=False, host="0.0.0.0", port=port)
+    app.run(debug=True, port=5000)

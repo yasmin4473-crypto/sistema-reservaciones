@@ -7,7 +7,7 @@ import resend
 from twilio.rest import Client
 from icalendar import Calendar, Event
 
-from cliente_config import NEGOCIO_NOMBRE, NEGOCIO_DIRECCION
+from cliente_config import NEGOCIO_NOMBRE, NEGOCIO_DIRECCION, NEGOCIO_EMAIL
 
 TWILIO_SID   = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -27,7 +27,7 @@ def _parse_datetime(fecha_str, hora_str):
             return datetime.strptime(dt_str, fmt)
         except ValueError:
             continue
-    # Último recurso: solo la fecha sin hora
+    # Ultimo recurso: solo la fecha sin hora
     return datetime.strptime(fecha_str, "%Y-%m-%d")
 
 
@@ -52,114 +52,71 @@ def _google_cal_url(dt_start, dt_end, servicio):
 
 def _build_ics(dt_start, dt_end, servicio):
     """
-    Genera los bytes de un archivo .ics usando la librería icalendar.
-    Campos: título, fecha/hora de inicio, duración 1 hora, servicio y dirección.
+    Genera los bytes de un archivo .ics usando la libreria icalendar.
     """
     cal = Calendar()
-    cal.add("PRODID", "-//Drivft LLC//Reservaciones//ES")
-    cal.add("VERSION", "2.0")
-    cal.add("CALSCALE", "GREGORIAN")
-    cal.add("METHOD", "REQUEST")
+    cal.add("prodid", f"-//{NEGOCIO_NOMBRE}//Reservaciones//ES")
+    cal.add("version", "2.0")
 
     event = Event()
-    event.add("SUMMARY",     f"Reservacion en {NEGOCIO_NOMBRE}")
-    event.add("DTSTART",     dt_start)
-    event.add("DTEND",       dt_end)
-    event.add("DESCRIPTION", f"Servicio: {servicio}")
-    event.add("LOCATION",    NEGOCIO_DIRECCION)
-    event.add("UID",         str(uuid.uuid4()))
+    event.add("uid", str(uuid.uuid4()))
+    event.add("summary", f"Reservacion en {NEGOCIO_NOMBRE}")
+    event.add("dtstart", dt_start)
+    event.add("dtend", dt_end)
+    event.add("description", f"Servicio: {servicio}")
+    event.add("location", NEGOCIO_DIRECCION)
 
     cal.add_component(event)
     return cal.to_ical()
 
 
 def mandar_email(destinatario, nombre, fecha, hora, servicio):
+    """
+    Envia email de confirmacion con boton de Google Calendar y archivo .ics adjunto.
+    """
     try:
-        # ── Parsear fecha/hora ──────────────────────────────────────
         dt_start = _parse_datetime(fecha, hora)
         dt_end   = dt_start + timedelta(hours=1)
+    except Exception:
+        dt_start = dt_end = datetime.now()
 
-        # ── Google Calendar URL ─────────────────────────────────────
-        cal_url = _google_cal_url(dt_start, dt_end, servicio)
+    cal_url  = _google_cal_url(dt_start, dt_end, servicio)
+    ics_data = _build_ics(dt_start, dt_end, servicio)
+    ics_b64  = base64.b64encode(ics_data).decode()
 
-        # ── Archivo .ics en memoria (base64 para Resend) ────────────
-        ics_bytes = _build_ics(dt_start, dt_end, servicio)
-        ics_b64   = base64.b64encode(ics_bytes).decode("utf-8")
-
-        # ── HTML del email ──────────────────────────────────────────
-        html = f"""
-        <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
-
-          <!-- Header -->
-          <div style="background:linear-gradient(135deg,#5C3D8F,#7C3AED);padding:32px 36px;text-align:center">
-            <p style="font-size:40px;margin:0 0 12px">🗓️</p>
-            <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">Reservacion Confirmada</h1>
-            <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:0">{NEGOCIO_NOMBRE}</p>
-          </div>
-
-          <!-- Body -->
-          <div style="padding:32px 36px">
-            <p style="font-size:16px;color:#1a1a2e;margin:0 0 24px">
-              Hola <strong>{nombre}</strong>, tu reservacion ha sido confirmada:
-            </p>
-
-            <!-- Tabla de detalles -->
-            <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;margin-bottom:28px">
-              <tr style="background:#f5f3ff">
-                <td style="padding:13px 18px;font-size:12px;font-weight:700;color:#5C3D8F;text-transform:uppercase;letter-spacing:1px;width:36%">Fecha</td>
-                <td style="padding:13px 18px;font-size:14px;color:#1a1a2e">{fecha}</td>
-              </tr>
-              <tr>
-                <td style="padding:13px 18px;font-size:12px;font-weight:700;color:#5C3D8F;text-transform:uppercase;letter-spacing:1px">Hora</td>
-                <td style="padding:13px 18px;font-size:14px;color:#1a1a2e">{hora}</td>
-              </tr>
-              <tr style="background:#f5f3ff">
-                <td style="padding:13px 18px;font-size:12px;font-weight:700;color:#5C3D8F;text-transform:uppercase;letter-spacing:1px">Servicio</td>
-                <td style="padding:13px 18px;font-size:14px;color:#1a1a2e">{servicio}</td>
-              </tr>
-              <tr>
-                <td style="padding:13px 18px;font-size:12px;font-weight:700;color:#5C3D8F;text-transform:uppercase;letter-spacing:1px">Ubicacion</td>
-                <td style="padding:13px 18px;font-size:14px;color:#1a1a2e">{NEGOCIO_DIRECCION}</td>
-              </tr>
-            </table>
-
-            <!-- Botón Google Calendar -->
-            <table style="width:100%;border-collapse:collapse;margin-bottom:28px">
-              <tr>
-                <td align="center">
-                  <a href="{cal_url}" target="_blank"
-                     style="display:inline-block;background:#4285F4;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:13px 28px;border-radius:8px;letter-spacing:0.2px">
-                    📅 Agregar a Google Calendar
-                  </a>
-                </td>
-              </tr>
-              <tr>
-                <td align="center" style="padding-top:10px;font-size:12px;color:#9d8ec4">
-                  También adjuntamos un archivo .ics para Outlook, Apple Calendar u otro.
-                </td>
-              </tr>
-            </table>
-
-            <p style="font-size:14px;color:#718096;line-height:1.6;margin:0 0 8px">
-              Si necesitas cancelar o hacer cambios, responde este email.
-            </p>
-            <p style="font-size:15px;color:#1a1a2e;font-weight:600;margin:0">¡Te esperamos! 🙌</p>
-          </div>
-
-          <!-- Footer -->
-          <div style="background:#f9f7ff;padding:20px 36px;text-align:center;border-top:1px solid #e9e3ff">
-            <p style="font-size:12px;color:#9d8ec4;margin:0">
-              {NEGOCIO_NOMBRE} · {NEGOCIO_DIRECCION}
-            </p>
-          </div>
-
+    html = f"""
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto;background:#f9f9f9;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10);">
+      <div style="background:linear-gradient(135deg,#5C3D8F,#7B5EA7);padding:36px 32px 28px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:8px;">✅</div>
+        <h1 style="color:#fff;font-size:22px;margin:0 0 6px;">Reservacion Confirmada</h1>
+        <p style="color:rgba(255,255,255,0.85);font-size:14px;margin:0;">{NEGOCIO_NOMBRE}</p>
+      </div>
+      <div style="padding:28px 32px;">
+        <p style="font-size:15px;color:#333;margin:0 0 20px;">Hola <strong>{nombre}</strong>, tu reservacion ha sido recibida exitosamente. Aqui estan los detalles:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+          <tr style="background:#f3eeff;"><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;width:40%;">Servicio</td><td style="padding:10px 14px;color:#333;">{servicio}</td></tr>
+          <tr><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;">Fecha</td><td style="padding:10px 14px;color:#333;">{fecha}</td></tr>
+          <tr style="background:#f3eeff;"><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;">Hora</td><td style="padding:10px 14px;color:#333;">{hora}</td></tr>
+        </table>
+        <div style="text-align:center;margin-bottom:24px;">
+          <a href="{cal_url}" target="_blank"
+             style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#5C3D8F,#7B5EA7);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;box-shadow:0 4px 12px rgba(92,61,143,0.30);">
+            📅 Agregar a Google Calendar
+          </a>
         </div>
-        """
+        <p style="font-size:12px;color:#aaa;text-align:center;margin:0;">Tambien adjuntamos un archivo .ics para agregarlo a cualquier calendario.</p>
+      </div>
+      <div style="background:#f3eeff;padding:16px 32px;text-align:center;">
+        <p style="font-size:12px;color:#888;margin:0;">{NEGOCIO_NOMBRE} &bull; {NEGOCIO_DIRECCION}</p>
+      </div>
+    </div>
+    """
 
+    try:
         resend.Emails.send({
             "from": f"{NEGOCIO_NOMBRE} <reservaciones@getdrivftllc.com>",
             "to": destinatario,
-            "subject": f"✅ Reservacion confirmada — {fecha} {hora}",
+            "subject": f"Reservacion confirmada — {NEGOCIO_NOMBRE}",
             "html": html,
             "attachments": [
                 {
@@ -168,108 +125,132 @@ def mandar_email(destinatario, nombre, fecha, hora, servicio):
                 }
             ],
         })
-        print(f"Email enviado a {destinatario}")
+        print(f"[Email] Confirmacion enviada a {destinatario}")
         return True
-
     except Exception as e:
-        print(f"Error enviando email: {e}")
+        print(f"[Email] Error: {e}")
+        return False
+
+
+def mandar_whatsapp(destinatario, nombre, fecha, hora, servicio):
+    """
+    Envia mensaje de confirmacion por WhatsApp usando Twilio.
+    """
+    if not all([TWILIO_SID, TWILIO_TOKEN, TWILIO_NUM]):
+        print("[WhatsApp] Credenciales Twilio no configuradas")
+        return False
+    try:
+        client = Client(TWILIO_SID, TWILIO_TOKEN)
+        num = destinatario.strip().replace(" ", "").replace("-", "")
+        if not num.startswith("+"):
+            num = "+" + num
+        body = (
+            f"Hola {nombre}! Tu reservacion en {NEGOCIO_NOMBRE} ha sido confirmada.\n\n"
+            f"Servicio: {servicio}\nFecha: {fecha}\nHora: {hora}\n\n"
+            "Si necesitas cambiar o cancelar, respondenos por aqui."
+        )
+        client.messages.create(
+            body=body,
+            from_=f"whatsapp:{TWILIO_NUM}",
+            to=f"whatsapp:{num}",
+        )
+        print(f"[WhatsApp] Confirmacion enviada a {destinatario}")
+        return True
+    except Exception as e:
+        print(f"[WhatsApp] Error: {e}")
+        return False
+
+
+def notificar_dueno(nombre_cliente, fecha, hora, servicio, canal):
+    """
+    Envia notificacion instantanea al dueno cuando llega una nueva reservacion.
+    """
+    destinatario = os.environ.get("GMAIL_USER") or NEGOCIO_EMAIL
+    if not destinatario:
+        print("[Dueno] No hay email de destino configurado (GMAIL_USER / NEGOCIO_EMAIL)")
+        return False
+
+    canal_emoji = "📱 WhatsApp" if canal == "whatsapp" else "🌐 Web"
+    base_url    = os.environ.get("APP_URL", "")
+    panel_url   = f"{base_url}/panel"
+
+    html = f"""
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;background:#f9f9f9;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10);">
+      <div style="background:linear-gradient(135deg,#3D2560,#5C3D8F);padding:32px;text-align:center;">
+        <div style="font-size:44px;margin-bottom:8px;">🔔</div>
+        <h1 style="color:#fff;font-size:20px;margin:0 0 4px;">Nueva Reservacion</h1>
+        <p style="color:rgba(255,255,255,0.80);font-size:13px;margin:0;">{NEGOCIO_NOMBRE}</p>
+      </div>
+      <div style="padding:28px 32px;">
+        <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+          <tr style="background:#f3eeff;"><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;width:40%;">Cliente</td><td style="padding:10px 14px;color:#333;">{nombre_cliente}</td></tr>
+          <tr><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;">Fecha</td><td style="padding:10px 14px;color:#333;">{fecha}</td></tr>
+          <tr style="background:#f3eeff;"><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;">Hora</td><td style="padding:10px 14px;color:#333;">{hora}</td></tr>
+          <tr><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;">Servicio</td><td style="padding:10px 14px;color:#333;">{servicio}</td></tr>
+          <tr style="background:#f3eeff;"><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;">Canal</td><td style="padding:10px 14px;color:#333;">{canal_emoji}</td></tr>
+        </table>
+        <div style="text-align:center;">
+          <a href="{panel_url}" target="_blank"
+             style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#3D2560,#5C3D8F);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;box-shadow:0 4px 12px rgba(61,37,96,0.35);">
+            📊 Ver panel
+          </a>
+        </div>
+      </div>
+    </div>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": f"{NEGOCIO_NOMBRE} <reservaciones@getdrivftllc.com>",
+            "to": destinatario,
+            "subject": f"🔔 Nueva reservacion — {nombre_cliente}",
+            "html": html,
+        })
+        print(f"[Dueno] Notificacion enviada a {destinatario}")
+        return True
+    except Exception as e:
+        print(f"[Dueno] Error enviando notificacion: {e}")
         return False
 
 
 def mandar_solicitud_resena(destinatario, nombre, negocio_nombre, google_maps_url):
     """
-    Envía un email 24 h después de la reservación pidiendo una reseña en Google.
-    Se llama desde un threading.Timer en app.py.
-    Si google_maps_url está vacío, no hace nada.
+    Envia solicitud de resena de Google 24h despues de la reservacion.
     """
     if not google_maps_url:
-        print(f"[Reseña] GOOGLE_MAPS_REVIEW_URL no configurado — email omitido para {destinatario}")
+        print("[Resena] GOOGLE_MAPS_REVIEW_URL no configurado, se omite el envio.")
         return False
 
+    html = f"""
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;background:#f9f9f9;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10);">
+      <div style="background:linear-gradient(135deg,#5C3D8F,#7B5EA7);padding:32px;text-align:center;">
+        <div style="font-size:44px;margin-bottom:8px;">⭐</div>
+        <h1 style="color:#fff;font-size:20px;margin:0 0 4px;">Como fue tu experiencia?</h1>
+        <p style="color:rgba(255,255,255,0.80);font-size:13px;margin:0;">{negocio_nombre}</p>
+      </div>
+      <div style="padding:28px 32px;text-align:center;">
+        <p style="font-size:15px;color:#333;margin:0 0 20px;">Hola <strong>{nombre}</strong>! Esperamos que tu reservacion haya sido excelente. Tu opinion nos ayuda a mejorar y a que otros clientes nos encuentren.</p>
+        <a href="{google_maps_url}" target="_blank"
+           style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#5C3D8F,#7B5EA7);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 4px 12px rgba(92,61,143,0.30);margin-bottom:20px;">
+          ⭐ Dejar mi resena en Google
+        </a>
+        <p style="font-size:12px;color:#aaa;margin:0;">Solo toma 30 segundos y significa mucho para nosotros!</p>
+      </div>
+      <div style="background:#f3eeff;padding:16px 32px;text-align:center;">
+        <p style="font-size:12px;color:#888;margin:0;">{negocio_nombre} &bull; {NEGOCIO_DIRECCION}</p>
+      </div>
+    </div>
+    """
+
     try:
-        html = f"""
-        <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
-
-          <!-- Header -->
-          <div style="background:linear-gradient(135deg,#5C3D8F,#7C3AED);padding:32px 36px;text-align:center">
-            <p style="font-size:44px;margin:0 0 12px">⭐</p>
-            <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">¿Cómo fue tu experiencia?</h1>
-            <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:0">{negocio_nombre}</p>
-          </div>
-
-          <!-- Body -->
-          <div style="padding:36px 36px 28px">
-            <p style="font-size:16px;color:#1a1a2e;margin:0 0 16px">
-              Hola <strong>{nombre}</strong> 👋
-            </p>
-            <p style="font-size:15px;color:#4a4a6a;line-height:1.7;margin:0 0 24px">
-              Esperamos que tu visita a <strong>{negocio_nombre}</strong> haya sido excelente.
-              Tu opinión nos ayuda a seguir mejorando y a que más clientes nos puedan encontrar.
-            </p>
-
-            <!-- Estrellas decorativas -->
-            <p style="text-align:center;font-size:28px;letter-spacing:6px;margin:0 0 28px">⭐⭐⭐⭐⭐</p>
-
-            <!-- Botón principal -->
-            <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
-              <tr>
-                <td align="center">
-                  <a href="{google_maps_url}" target="_blank"
-                     style="display:inline-block;background:linear-gradient(135deg,#5C3D8F,#7C3AED);color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 36px;border-radius:10px;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(92,61,143,0.4)">
-                    ⭐ Dejar mi reseña en Google
-                  </a>
-                </td>
-              </tr>
-              <tr>
-                <td align="center" style="padding-top:12px;font-size:12px;color:#9d8ec4">
-                  Solo toma 30 segundos y nos ayuda muchísimo 🙏
-                </td>
-              </tr>
-            </table>
-
-            <!-- Separador -->
-            <div style="height:1px;background:#e9e3ff;margin:0 0 24px"></div>
-
-            <p style="font-size:13px;color:#9d8ec4;line-height:1.6;margin:0">
-              Si tuviste algún inconveniente, responde este email y lo resolvemos de inmediato.
-              Tu satisfacción es nuestra prioridad.
-            </p>
-          </div>
-
-          <!-- Footer -->
-          <div style="background:#f9f7ff;padding:20px 36px;text-align:center;border-top:1px solid #e9e3ff">
-            <p style="font-size:12px;color:#9d8ec4;margin:0">
-              {negocio_nombre} · {NEGOCIO_DIRECCION}
-            </p>
-          </div>
-
-        </div>
-        """
-
         resend.Emails.send({
             "from": f"{negocio_nombre} <reservaciones@getdrivftllc.com>",
             "to": destinatario,
-            "subject": f"⭐ ¿Cómo fue tu experiencia en {negocio_nombre}?",
+            "subject": f"Como fue tu experiencia en {negocio_nombre}? ⭐",
             "html": html,
         })
-        print(f"[Reseña] Email enviado a {destinatario}")
-        return True
-
-    except Exception as e:
-        print(f"[Reseña] Error enviando email: {e}")
-        return False
-
-
-def mandar_whatsapp(numero_cliente, nombre, fecha, hora, servicio):
-    try:
-        cliente = Client(TWILIO_SID, TWILIO_TOKEN)
-        mensaje = cliente.messages.create(
-            from_=TWILIO_NUM,
-            to=f"whatsapp:+1{numero_cliente}",
-            body=f"Hola {nombre}, tu reservacion esta confirmada!\n\nFecha: {fecha}\nHora: {hora}\nServicio: {servicio}\n\nSi necesitas cambiarla respondenos."
-        )
-        print(f"WhatsApp enviado a {numero_cliente}")
+        print(f"[Resena] Solicitud enviada a {destinatario}")
         return True
     except Exception as e:
-        print(f"Error enviando WhatsApp: {e}")
+        print(f"[Resena] Error enviando solicitud: {e}")
         return False
