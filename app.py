@@ -901,165 +901,162 @@ def pagar():
     </body>
     </html>"""
 
-    html = f"""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <title>Pago — Drivft LLC</title>
-        <script src="https://js.stripe.com/v3/"></script>
-        <style>
-            *{{margin:0;padding:0;box-sizing:border-box}}
-            body{{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
-            .card{{background:white;border-radius:20px;padding:2rem;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.2)}}
-            h1{{font-size:22px;color:#111;margin-bottom:4px}}
-            .sub{{font-size:14px;color:#888;margin-bottom:24px}}
-            .precio{{background:#f5f5f5;border-radius:12px;padding:16px;margin-bottom:20px}}
-            .precio-val{{font-size:32px;font-weight:600;color:#5C3D8F}}
-            .precio-label{{font-size:13px;color:#888;margin-top:4px}}
-            label{{font-size:13px;font-weight:500;color:#444;display:block;margin-bottom:5px}}
-            input{{width:100%;padding:10px 14px;border:1.5px solid #e8e8e8;border-radius:8px;font-size:14px;margin-bottom:16px;outline:none;font-family:'Segoe UI',sans-serif}}
-            input:focus{{border-color:#5C3D8F}}
-            #card-element{{padding:12px 14px;border:1.5px solid #e8e8e8;border-radius:8px;margin-bottom:16px}}
-            button{{width:100%;padding:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Segoe UI',sans-serif}}
-            button:disabled{{opacity:0.6;cursor:not-allowed}}
-            #error{{color:#ef4444;font-size:13px;margin-bottom:12px;min-height:18px}}
-            .badge{{display:inline-block;background:#E1F5EE;color:#085041;font-size:12px;padding:4px 10px;border-radius:20px;margin-bottom:16px}}
-            .divider{{display:flex;align-items:center;gap:12px;margin:16px 0}}
-            .divider::before,.divider::after{{content:'';flex:1;height:1px;background:#e8e8e8}}
-            .divider span{{font-size:12px;color:#aaa;white-space:nowrap}}
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <div class="badge">🔒 Pago seguro con Stripe</div>
-            <h1>Drivft LLC</h1>
-            <p class="sub">{p['nombre']}</p>
-            <div class="precio">
-                <div class="precio-val">${p['setup']//100:,}</div>
-                <div class="precio-label">{"Setup fee unico + $" + str(p['mensual']//100) + "/mes despues" if p['mensual'] else "Setup unico — pago por reservacion despues"}</div>
-            </div>
+    # ── Crear PaymentIntent server-side para inyectar client_secret ──
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=p['setup'],
+            currency="usd",
+            automatic_payment_methods={"enabled": True},
+            metadata={"paquete": paquete, "nombre": p['nombre']},
+        )
+        client_secret = intent.client_secret
+    except Exception as e:
+        print(f"[PAGAR] Stripe error al crear intent: {e}")
+        client_secret = ""
 
-            <!-- Apple Pay / Google Pay -->
-            <div id="pr-section" style="display:none">
-                <div id="payment-request-btn"></div>
-                <div class="divider"><span>o paga con tarjeta</span></div>
-            </div>
+    precio_label = ("Setup fee unico + $" + str(p['mensual']//100) + "/mes despues"
+                    if p['mensual'] else "Setup unico — pago por reservacion despues")
 
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pago — Drivft LLC</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        *{{margin:0;padding:0;box-sizing:border-box}}
+        body{{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);
+              min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
+        .card{{background:white;border-radius:20px;padding:2rem;width:100%;max-width:480px;
+               box-shadow:0 20px 60px rgba(0,0,0,0.2)}}
+        .badge{{display:inline-block;background:#E1F5EE;color:#085041;font-size:12px;
+                padding:4px 10px;border-radius:20px;margin-bottom:16px}}
+        h1{{font-size:22px;color:#111;margin-bottom:4px}}
+        .sub{{font-size:14px;color:#888;margin-bottom:20px}}
+        .precio{{background:#f5f5f5;border-radius:12px;padding:16px;margin-bottom:20px}}
+        .precio-val{{font-size:32px;font-weight:600;color:#5C3D8F}}
+        .precio-label{{font-size:13px;color:#888;margin-top:4px}}
+        label{{font-size:13px;font-weight:500;color:#444;display:block;margin-bottom:5px}}
+        input{{width:100%;padding:10px 14px;border:1.5px solid #e8e8e8;border-radius:8px;
+               font-size:14px;margin-bottom:16px;outline:none;font-family:'Segoe UI',sans-serif}}
+        input:focus{{border-color:#5C3D8F;box-shadow:0 0 0 3px rgba(92,61,143,0.1)}}
+        #payment-element{{margin-bottom:16px}}
+        #error{{color:#ef4444;font-size:13px;margin-bottom:12px;min-height:18px}}
+        #btn{{width:100%;padding:14px;background:linear-gradient(135deg,#667eea,#764ba2);
+              color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;
+              cursor:pointer;font-family:'Segoe UI',sans-serif;margin-top:4px}}
+        #btn:disabled{{opacity:0.6;cursor:not-allowed}}
+        #loading{{display:none;text-align:center;padding:32px;color:#888;font-size:14px}}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="badge">🔒 Pago seguro con Stripe</div>
+        <h1>Drivft LLC</h1>
+        <p class="sub">{p['nombre']}</p>
+        <div class="precio">
+            <div class="precio-val">${p['setup']//100:,}</div>
+            <div class="precio-label">{precio_label}</div>
+        </div>
+
+        <div id="loading">Cargando opciones de pago...</div>
+
+        <form id="payment-form" style="display:none">
             <label>Nombre completo</label>
             <input type="text" id="nombre" placeholder="Juan Garcia" required>
             <label>Email</label>
             <input type="email" id="email" placeholder="tu@email.com" required>
-            <label>Tarjeta de credito</label>
-            <div id="card-element"></div>
+
+            <!-- Payment Element: muestra Apple Pay, Google Pay y tarjeta automaticamente -->
+            <div id="payment-element"></div>
+
             <div id="error"></div>
-            <button id="btn">{"Pagar $" + str(p['setup']//100) + " ahora"}</button>
-        </div>
+            <button id="btn">Pagar ${p['setup']//100:,} ahora</button>
+        </form>
+    </div>
 
-        <script>
-            const PAQUETE = '{paquete}';
-            const stripe   = Stripe('{os.environ.get("STRIPE_PUBLIC_KEY")}');
-            const elements = stripe.elements();
+    <script>
+    (function() {{
+        const CLIENT_SECRET = '{client_secret}';
+        const PAQUETE       = '{paquete}';
+        const PK            = '{os.environ.get("STRIPE_PUBLIC_KEY", "")}';
 
-            // ── helpers ───────────────────────────────────────────
-            function showError(msg) {{
-                document.getElementById('error').textContent = msg;
+        if (!CLIENT_SECRET || !PK) {{
+            document.getElementById('loading').textContent =
+                'Error de configuracion. Contacta a contact@getdrivftllc.com';
+            document.getElementById('loading').style.display = 'block';
+            return;
+        }}
+
+        const stripe = Stripe(PK);
+
+        const appearance = {{
+            theme: 'stripe',
+            variables: {{
+                colorPrimary:       '#5C3D8F',
+                colorBackground:    '#ffffff',
+                colorText:          '#333333',
+                borderRadius:       '8px',
+                fontFamily:         "'Segoe UI', sans-serif",
+            }},
+        }};
+
+        const elements = stripe.elements({{ clientSecret: CLIENT_SECRET, appearance }});
+
+        // Payment Element: muestra Apple Pay / Google Pay / tarjeta segun dispositivo
+        const paymentEl = elements.create('payment', {{
+            fields: {{ billingDetails: {{ name: 'never', email: 'never' }} }},
+            wallets: {{ applePay: 'auto', googlePay: 'auto' }},
+        }});
+
+        paymentEl.mount('#payment-element');
+        paymentEl.on('ready', () => {{
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('payment-form').style.display = 'block';
+        }});
+
+        document.getElementById('payment-form').addEventListener('submit', async (e) => {{
+            e.preventDefault();
+            const btn    = document.getElementById('btn');
+            const nombre = document.getElementById('nombre').value.trim();
+            const email  = document.getElementById('email').value.trim();
+
+            if (!nombre || !email) {{
+                document.getElementById('error').textContent = 'Completa nombre y email.';
+                return;
             }}
-            function onSuccess(nombre, email) {{
-                window.location.href = '/pago-exitoso?nombre=' + encodeURIComponent(nombre)
-                    + '&paquete=' + PAQUETE + '&email=' + encodeURIComponent(email);
+
+            btn.disabled    = true;
+            btn.textContent = 'Procesando...';
+            document.getElementById('error').textContent = '';
+
+            const returnUrl = window.location.origin
+                + '/pago-exitoso?nombre=' + encodeURIComponent(nombre)
+                + '&paquete=' + PAQUETE
+                + '&email='   + encodeURIComponent(email);
+
+            const {{ error }} = await stripe.confirmPayment({{
+                elements,
+                confirmParams: {{
+                    return_url: returnUrl,
+                    payment_method_data: {{
+                        billing_details: {{ name: nombre, email: email }},
+                    }},
+                }},
+            }});
+
+            // Solo llega aqui si hay error inmediato (ej. tarjeta invalida)
+            if (error) {{
+                document.getElementById('error').textContent = error.message;
+                btn.disabled    = false;
+                btn.textContent = 'Reintentar';
             }}
-            async function crearIntent(nombre, email) {{
-                const res  = await fetch('/crear-pago', {{
-                    method: 'POST',
-                    headers: {{'Content-Type': 'application/json'}},
-                    body: JSON.stringify({{paquete: PAQUETE, nombre, email}})
-                }});
-                return res.json();
-            }}
-
-            // ── Apple Pay / Google Pay ────────────────────────────
-            const paymentRequest = stripe.paymentRequest({{
-                country:          'US',
-                currency:         'usd',
-                total:            {{ label: '{p["nombre"]}', amount: {p['setup']} }},
-                requestPayerName:  true,
-                requestPayerEmail: true,
-            }});
-
-            const prButton = elements.create('paymentRequestButton', {{
-                paymentRequest,
-                style: {{ paymentRequestButton: {{ height: '48px', borderRadius: '8px' }} }}
-            }});
-
-            paymentRequest.canMakePayment().then(result => {{
-                if (result) {{
-                    prButton.mount('#payment-request-btn');
-                    document.getElementById('pr-section').style.display = 'block';
-                }}
-            }});
-
-            paymentRequest.on('paymentmethod', async (ev) => {{
-                const nombre = ev.payerName  || '';
-                const email  = ev.payerEmail || '';
-                const data   = await crearIntent(nombre, email);
-                if (data.error) {{
-                    ev.complete('fail');
-                    showError(data.error);
-                    return;
-                }}
-                const {{error}} = await stripe.confirmCardPayment(
-                    data.client_secret,
-                    {{payment_method: ev.paymentMethod.id}},
-                    {{handleActions: false}}
-                );
-                if (error) {{
-                    ev.complete('fail');
-                    showError(error.message);
-                }} else {{
-                    ev.complete('success');
-                    onSuccess(nombre, email);
-                }}
-            }});
-
-            // ── Card fallback ─────────────────────────────────────
-            const card = elements.create('card', {{
-                style: {{base: {{fontSize: '16px', color: '#424770', fontFamily: "'Segoe UI', sans-serif"}}}}
-            }});
-            card.mount('#card-element');
-
-            document.getElementById('btn').addEventListener('click', async () => {{
-                const btn   = document.getElementById('btn');
-                const nombre = document.getElementById('nombre').value;
-                const email  = document.getElementById('email').value;
-                if (!nombre || !email) {{ showError('Completa nombre y email.'); return; }}
-                btn.disabled = true;
-                btn.textContent = 'Procesando...';
-                showError('');
-
-                const data = await crearIntent(nombre, email);
-                if (data.error) {{
-                    showError(data.error);
-                    btn.disabled = false;
-                    btn.textContent = 'Reintentar';
-                    return;
-                }}
-
-                const result = await stripe.confirmCardPayment(data.client_secret, {{
-                    payment_method: {{card, billing_details: {{name: nombre, email: email}}}}
-                }});
-                if (result.error) {{
-                    showError(result.error.message);
-                    btn.disabled = false;
-                    btn.textContent = 'Reintentar';
-                }} else {{
-                    onSuccess(nombre, email);
-                }}
-            }});
-        </script>
-    </body>
-    </html>
-    """
+        }});
+    }})();
+    </script>
+</body>
+</html>"""
     return html
 
 
