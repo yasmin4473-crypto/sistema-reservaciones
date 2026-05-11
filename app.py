@@ -797,8 +797,8 @@ def pagar():
         "standard":          {"setup": 90000,  "mensual": 27500, "nombre": "Standard Package"},
         "professional":      {"setup": 200000, "mensual": 35000, "nombre": "Professional Package"},
         "basic-lead":        {"setup": 0,      "mensual": 0,     "nombre": "Basic Lead — Pay per Lead"},
-        "standard-lead":     {"setup": 30000,  "mensual": 0,     "nombre": "Standard Lead — Pay per Lead"},
-        "professional-lead": {"setup": 50000,  "mensual": 0,     "nombre": "Professional Lead — Pay per Lead"},
+        "standard-lead":     {"setup": 30000,  "mensual": 0,     "nombre": "Standard Lead — $8/reservacion"},
+        "professional-lead": {"setup": 50000,  "mensual": 0,     "nombre": "Professional Lead — $12/reservacion"},
     }
     p = precios.get(paquete, precios["basic"])
 
