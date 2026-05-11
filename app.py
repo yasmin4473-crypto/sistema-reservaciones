@@ -793,12 +793,56 @@ def chat():
 def pagar():
     paquete = request.args.get("paquete", "basic")
     precios = {
-        "basic":        {"setup": 50000, "mensual": 17500, "nombre": "Basic Package"},
-        "standard":     {"setup": 90000, "mensual": 27500, "nombre": "Standard Package"},
-        "professional": {"setup": 200000, "mensual": 35000, "nombre": "Professional Package"},
+        "basic":             {"setup": 50000,  "mensual": 17500, "nombre": "Basic Package"},
+        "standard":          {"setup": 90000,  "mensual": 27500, "nombre": "Standard Package"},
+        "professional":      {"setup": 200000, "mensual": 35000, "nombre": "Professional Package"},
+        "basic-lead":        {"setup": 0,      "mensual": 0,     "nombre": "Basic Lead — Pay per Lead"},
+        "standard-lead":     {"setup": 30000,  "mensual": 0,     "nombre": "Standard Lead — Pay per Lead"},
+        "professional-lead": {"setup": 50000,  "mensual": 0,     "nombre": "Professional Lead — Pay per Lead"},
     }
     p = precios.get(paquete, precios["basic"])
-    
+
+    # ── Basic Lead: setup gratuito, sin formulario de pago ──
+    if paquete == "basic-lead":
+        return f"""<!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>Basic Lead — Drivft LLC</title>
+        <style>
+            *{{margin:0;padding:0;box-sizing:border-box}}
+            body{{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#134e4a,#065f46);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
+            .card{{background:white;border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center}}
+            .icon{{font-size:56px;margin-bottom:16px}}
+            h1{{font-size:22px;color:#111;margin-bottom:8px}}
+            .sub{{font-size:14px;color:#888;margin-bottom:24px}}
+            .info-box{{background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:18px;margin-bottom:24px;text-align:left}}
+            .info-box p{{font-size:14px;color:#166534;line-height:1.7;margin:0}}
+            .info-box strong{{display:block;font-size:15px;margin-bottom:6px;color:#14532d}}
+            .badge{{display:inline-block;background:#dcfce7;color:#166534;font-size:13px;font-weight:600;padding:5px 14px;border-radius:20px;margin-bottom:20px}}
+            a.btn{{display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:white;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;width:100%;box-sizing:border-box}}
+            a.btn:hover{{opacity:0.9}}
+            .footer{{margin-top:20px;font-size:12px;color:#aaa}}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="icon">🌱</div>
+            <div class="badge">✅ Setup 100% gratuito</div>
+            <h1>Drivft LLC</h1>
+            <p class="sub">Basic Lead — Pay per Lead</p>
+            <div class="info-box">
+                <strong>¿Cómo funciona?</strong>
+                <p>Te configuramos el sistema completo <strong>sin costo inicial</strong>. Solo pagas <strong>$5 por cada reservación real</strong> que tu sistema genere — nunca por visitas o mensajes.</p>
+            </div>
+            <a href="mailto:{NEGOCIO_EMAIL}?subject=Quiero el plan Basic Lead&body=Hola, quiero empezar con el plan Basic Lead (Pay per Lead). Mi negocio es:" class="btn">
+                📩 Contactar para empezar gratis
+            </a>
+            <p class="footer">Te responderemos en menos de 24 horas para configurar tu sistema.</p>
+        </div>
+    </body>
+    </html>"""
+
     html = f"""
     <!DOCTYPE html>
     <html lang="es">
@@ -832,7 +876,7 @@ def pagar():
             <p class="sub">{p['nombre']}</p>
             <div class="precio">
                 <div class="precio-val">${p['setup']//100:,}</div>
-                <div class="precio-label">Setup fee unico + ${p['mensual']//100}/mes despues</div>
+                <div class="precio-label">{"Setup fee unico + $" + str(p['mensual']//100) + "/mes despues" if p['mensual'] else "Setup unico — pago por reservacion despues"}</div>
             </div>
             <label>Nombre completo</label>
             <input type="text" id="nombre" placeholder="Juan Garcia" required>
@@ -841,7 +885,7 @@ def pagar():
             <label>Tarjeta de credito</label>
             <div id="card-element"></div>
             <div id="error"></div>
-            <button id="btn">Pagar ${p['setup']//100:,} ahora</button>
+            <button id="btn">{"Pagar $" + str(p['setup']//100) + " ahora"}</button>
         </div>
         <script>
             const stripe = Stripe('{os.environ.get("STRIPE_PUBLIC_KEY")}');
