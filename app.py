@@ -918,13 +918,16 @@ def pagar():
             .precio-val{{font-size:32px;font-weight:600;color:#5C3D8F}}
             .precio-label{{font-size:13px;color:#888;margin-top:4px}}
             label{{font-size:13px;font-weight:500;color:#444;display:block;margin-bottom:5px}}
-            input{{width:100%;padding:10px 14px;border:1.5px solid #e8e8e8;border-radius:8px;font-size:14px;margin-bottom:16px;outline:none}}
+            input{{width:100%;padding:10px 14px;border:1.5px solid #e8e8e8;border-radius:8px;font-size:14px;margin-bottom:16px;outline:none;font-family:'Segoe UI',sans-serif}}
             input:focus{{border-color:#5C3D8F}}
             #card-element{{padding:12px 14px;border:1.5px solid #e8e8e8;border-radius:8px;margin-bottom:16px}}
-            button{{width:100%;padding:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}}
-            button:disabled{{opacity:0.6}}
-            #error{{color:#ef4444;font-size:13px;margin-bottom:12px}}
+            button{{width:100%;padding:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Segoe UI',sans-serif}}
+            button:disabled{{opacity:0.6;cursor:not-allowed}}
+            #error{{color:#ef4444;font-size:13px;margin-bottom:12px;min-height:18px}}
             .badge{{display:inline-block;background:#E1F5EE;color:#085041;font-size:12px;padding:4px 10px;border-radius:20px;margin-bottom:16px}}
+            .divider{{display:flex;align-items:center;gap:12px;margin:16px 0}}
+            .divider::before,.divider::after{{content:'';flex:1;height:1px;background:#e8e8e8}}
+            .divider span{{font-size:12px;color:#aaa;white-space:nowrap}}
         </style>
     </head>
     <body>
@@ -936,6 +939,13 @@ def pagar():
                 <div class="precio-val">${p['setup']//100:,}</div>
                 <div class="precio-label">{"Setup fee unico + $" + str(p['mensual']//100) + "/mes despues" if p['mensual'] else "Setup unico — pago por reservacion despues"}</div>
             </div>
+
+            <!-- Apple Pay / Google Pay -->
+            <div id="pr-section" style="display:none">
+                <div id="payment-request-btn"></div>
+                <div class="divider"><span>o paga con tarjeta</span></div>
+            </div>
+
             <label>Nombre completo</label>
             <input type="text" id="nombre" placeholder="Juan Garcia" required>
             <label>Email</label>
@@ -945,29 +955,91 @@ def pagar():
             <div id="error"></div>
             <button id="btn">{"Pagar $" + str(p['setup']//100) + " ahora"}</button>
         </div>
+
         <script>
-            const stripe = Stripe('{os.environ.get("STRIPE_PUBLIC_KEY")}');
+            const PAQUETE = '{paquete}';
+            const stripe   = Stripe('{os.environ.get("STRIPE_PUBLIC_KEY")}');
             const elements = stripe.elements();
-            const card = elements.create('card', {{style: {{base: {{fontSize: '16px', color: '#424770'}}}}}});
-            card.mount('#card-element');
-            
-            document.getElementById('btn').addEventListener('click', async () => {{
-                const btn = document.getElementById('btn');
-                btn.disabled = true;
-                btn.textContent = 'Procesando...';
-                
-                const nombre = document.getElementById('nombre').value;
-                const email = document.getElementById('email').value;
-                
-                const res = await fetch('/crear-pago', {{
+
+            // ── helpers ───────────────────────────────────────────
+            function showError(msg) {{
+                document.getElementById('error').textContent = msg;
+            }}
+            function onSuccess(nombre, email) {{
+                window.location.href = '/pago-exitoso?nombre=' + encodeURIComponent(nombre)
+                    + '&paquete=' + PAQUETE + '&email=' + encodeURIComponent(email);
+            }}
+            async function crearIntent(nombre, email) {{
+                const res  = await fetch('/crear-pago', {{
                     method: 'POST',
                     headers: {{'Content-Type': 'application/json'}},
-                    body: JSON.stringify({{paquete: '{paquete}', nombre, email}})
+                    body: JSON.stringify({{paquete: PAQUETE, nombre, email}})
                 }});
-                const data = await res.json();
+                return res.json();
+            }}
 
+            // ── Apple Pay / Google Pay ────────────────────────────
+            const paymentRequest = stripe.paymentRequest({{
+                country:          'US',
+                currency:         'usd',
+                total:            {{ label: '{p["nombre"]}', amount: {p['setup']} }},
+                requestPayerName:  true,
+                requestPayerEmail: true,
+            }});
+
+            const prButton = elements.create('paymentRequestButton', {{
+                paymentRequest,
+                style: {{ paymentRequestButton: {{ height: '48px', borderRadius: '8px' }} }}
+            }});
+
+            paymentRequest.canMakePayment().then(result => {{
+                if (result) {{
+                    prButton.mount('#payment-request-btn');
+                    document.getElementById('pr-section').style.display = 'block';
+                }}
+            }});
+
+            paymentRequest.on('paymentmethod', async (ev) => {{
+                const nombre = ev.payerName  || '';
+                const email  = ev.payerEmail || '';
+                const data   = await crearIntent(nombre, email);
                 if (data.error) {{
-                    document.getElementById('error').textContent = data.error;
+                    ev.complete('fail');
+                    showError(data.error);
+                    return;
+                }}
+                const {{error}} = await stripe.confirmCardPayment(
+                    data.client_secret,
+                    {{payment_method: ev.paymentMethod.id}},
+                    {{handleActions: false}}
+                );
+                if (error) {{
+                    ev.complete('fail');
+                    showError(error.message);
+                }} else {{
+                    ev.complete('success');
+                    onSuccess(nombre, email);
+                }}
+            }});
+
+            // ── Card fallback ─────────────────────────────────────
+            const card = elements.create('card', {{
+                style: {{base: {{fontSize: '16px', color: '#424770', fontFamily: "'Segoe UI', sans-serif"}}}}
+            }});
+            card.mount('#card-element');
+
+            document.getElementById('btn').addEventListener('click', async () => {{
+                const btn   = document.getElementById('btn');
+                const nombre = document.getElementById('nombre').value;
+                const email  = document.getElementById('email').value;
+                if (!nombre || !email) {{ showError('Completa nombre y email.'); return; }}
+                btn.disabled = true;
+                btn.textContent = 'Procesando...';
+                showError('');
+
+                const data = await crearIntent(nombre, email);
+                if (data.error) {{
+                    showError(data.error);
                     btn.disabled = false;
                     btn.textContent = 'Reintentar';
                     return;
@@ -976,13 +1048,12 @@ def pagar():
                 const result = await stripe.confirmCardPayment(data.client_secret, {{
                     payment_method: {{card, billing_details: {{name: nombre, email: email}}}}
                 }});
-
                 if (result.error) {{
-                    document.getElementById('error').textContent = result.error.message;
+                    showError(result.error.message);
                     btn.disabled = false;
                     btn.textContent = 'Reintentar';
                 }} else {{
-                    window.location.href = '/pago-exitoso?nombre=' + nombre + '&paquete={paquete}&email=' + encodeURIComponent(email);
+                    onSuccess(nombre, email);
                 }}
             }});
         </script>
