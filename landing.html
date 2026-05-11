@@ -250,6 +250,66 @@
     }
     .card-cta-outline:hover { border-color:var(--purple-light); background:rgba(92,61,143,0.1); }
 
+    /* ── PAY PER LEAD SECTION ── */
+    #lead { background:var(--bg); }
+    .lead-header { text-align:center; margin-bottom:56px; }
+    .lead-label {
+      display:inline-block;
+      background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(16,185,129,0.15));
+      border:1px solid rgba(245,158,11,0.35);
+      color:var(--gold); font-size:12px; font-weight:700;
+      letter-spacing:2px; text-transform:uppercase;
+      padding:6px 16px; border-radius:20px; margin-bottom:16px;
+    }
+    .lead-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:24px; max-width:1080px; margin:0 auto;
+    }
+    .lead-card {
+      background:var(--card); border:1px solid rgba(245,158,11,0.2);
+      border-radius:20px; padding:36px 32px;
+      position:relative; transition:transform 0.3s, box-shadow 0.3s;
+    }
+    .lead-card:hover { transform:translateY(-6px); box-shadow:0 20px 60px rgba(245,158,11,0.2); }
+    .lead-card.featured {
+      border-color:var(--gold);
+      box-shadow:0 0 0 1px var(--gold), 0 16px 48px rgba(245,158,11,0.25);
+    }
+    .lead-badge {
+      position:absolute; top:20px; right:20px;
+      background:linear-gradient(135deg,var(--gold),#10B981);
+      color:#0A0612; font-size:11px; font-weight:800;
+      padding:4px 12px; border-radius:20px; letter-spacing:0.5px;
+    }
+    .lead-card .card-billing strong { color:var(--gold); }
+    .lead-card .card-features li::before { color:#10B981; }
+    .lead-card .card-price { color:var(--text); }
+    .lead-price-free { color:#10B981 !important; }
+    .card-cta-lead-solid {
+      display:block; text-align:center;
+      padding:13px; border-radius:10px;
+      font-size:15px; font-weight:700; text-decoration:none;
+      background:linear-gradient(135deg,var(--gold),#10B981);
+      color:#0A0612;
+      box-shadow:0 6px 20px rgba(245,158,11,0.35);
+      transition:all 0.2s;
+    }
+    .card-cta-lead-solid:hover { opacity:0.9; transform:translateY(-1px); }
+    .card-cta-lead-outline {
+      display:block; text-align:center;
+      padding:13px; border-radius:10px;
+      font-size:15px; font-weight:700; text-decoration:none;
+      border:1.5px solid rgba(245,158,11,0.4); color:var(--text);
+      transition:all 0.2s;
+    }
+    .card-cta-lead-outline:hover { border-color:var(--gold); background:rgba(245,158,11,0.08); }
+    .lead-note {
+      text-align:center; margin-top:40px;
+      font-size:13px; color:var(--muted); line-height:1.7;
+    }
+    .lead-note strong { color:var(--gold); }
+
     /* ── COMING SOON BADGE ── */
     .badge-cs {
       display:inline-block;
@@ -631,6 +691,111 @@
       </div>
 
     </div>
+  </div>
+</section>
+
+<!-- PAY PER LEAD -->
+<section id="lead">
+  <div style="max-width:1080px;margin:0 auto;padding:80px 24px">
+
+    <div class="lead-header">
+      <span class="lead-label" data-es>💰 Sin riesgo — Solo pagas por resultados</span>
+      <span class="lead-label" data-en>💰 Zero risk — Pay only for results</span>
+      <h2 class="section-title fade-up" data-es>Pay per Lead —<br>Solo pagas cuando funciona</h2>
+      <h2 class="section-title fade-up" data-en>Pay per Lead —<br>You only pay when it works</h2>
+      <p class="section-sub" data-es>Sin mensualidades fijas. Pagas una pequeña tarifa por cada reservación real que tu sistema genera. Perfecto para negocios que recién empiezan.</p>
+      <p class="section-sub" data-en>No fixed monthly fees. You pay a small fee per real booking your system generates. Perfect for businesses just getting started.</p>
+    </div>
+
+    <div class="lead-grid">
+
+      <!-- Basic Lead -->
+      <div class="lead-card fade-up">
+        <div class="card-icon">🌱</div>
+        <div class="card-name">Basic Lead</div>
+        <div class="card-price lead-price-free">$0</div>
+        <div class="card-billing" data-es>setup + <strong>$5 por reservación</strong></div>
+        <div class="card-billing" data-en>setup + <strong>$5 per booking</strong></div>
+        <div class="card-divider"></div>
+        <ul class="card-features">
+          <li class="highlight" data-es>Sin costo inicial — empieza hoy</li>
+          <li class="highlight" data-en>No upfront cost — start today</li>
+          <li data-es>Sistema de reservaciones online</li>
+          <li data-en>Online booking system</li>
+          <li data-es>Panel de control del dueño</li>
+          <li data-en>Owner dashboard</li>
+          <li data-es>Confirmaciones por email</li>
+          <li data-en>Email confirmations</li>
+          <li data-es>Chatbot básico incluido</li>
+          <li data-en>Basic chatbot included</li>
+          <li data-es>Sin contrato mensual</li>
+          <li data-en>No monthly contract</li>
+        </ul>
+        <a href="#contacto" class="card-cta-lead-outline" data-es>Empezar gratis →</a>
+        <a href="#contacto" class="card-cta-lead-outline" data-en>Start free →</a>
+      </div>
+
+      <!-- Standard Lead -->
+      <div class="lead-card featured fade-up">
+        <div class="lead-badge" data-es>⭐ MÁS POPULAR</div>
+        <div class="lead-badge" data-en>⭐ MOST POPULAR</div>
+        <div class="card-icon">📈</div>
+        <div class="card-name">Standard Lead</div>
+        <div class="card-price"><sup>$</sup>300</div>
+        <div class="card-billing" data-es>setup único + <strong>$8 por reservación</strong></div>
+        <div class="card-billing" data-en>one-time setup + <strong>$8 per booking</strong></div>
+        <div class="card-divider"></div>
+        <ul class="card-features">
+          <li class="highlight" data-es>Todo lo del Basic Lead</li>
+          <li class="highlight" data-en>Everything in Basic Lead</li>
+          <li class="highlight" data-es>Notificaciones por WhatsApp</li>
+          <li class="highlight" data-en>WhatsApp notifications</li>
+          <li data-es>Chatbot IA bilingüe (ES/EN)</li>
+          <li data-en>Bilingual AI chatbot (ES/EN)</li>
+          <li data-es>Recordatorios automáticos al cliente</li>
+          <li data-en>Automatic client reminders</li>
+          <li data-es>Reportes de reservaciones</li>
+          <li data-en>Booking reports</li>
+          <li data-es>Soporte prioritario</li>
+          <li data-en>Priority support</li>
+        </ul>
+        <a href="#contacto" class="card-cta-lead-solid" data-es>Empezar ahora →</a>
+        <a href="#contacto" class="card-cta-lead-solid" data-en>Get started →</a>
+      </div>
+
+      <!-- Professional Lead -->
+      <div class="lead-card fade-up">
+        <div class="card-icon">🏅</div>
+        <div class="card-name">Professional Lead</div>
+        <div class="card-price"><sup>$</sup>500</div>
+        <div class="card-billing" data-es>setup único + <strong>$12 por reservación</strong></div>
+        <div class="card-billing" data-en>one-time setup + <strong>$12 per booking</strong></div>
+        <div class="card-divider"></div>
+        <ul class="card-features">
+          <li class="highlight" data-es>Todo lo del Standard Lead</li>
+          <li class="highlight" data-en>Everything in Standard Lead</li>
+          <li class="highlight" data-es>Sitio web profesional incluido</li>
+          <li class="highlight" data-en>Professional website included</li>
+          <li data-es>Dominio propio incluido</li>
+          <li data-en>Custom domain included</li>
+          <li data-es>Pagos online con Stripe</li>
+          <li data-en>Online payments via Stripe</li>
+          <li data-es>Analytics y dashboard avanzado</li>
+          <li data-en>Analytics & advanced dashboard</li>
+          <li data-es>Account manager dedicado</li>
+          <li data-en>Dedicated account manager</li>
+        </ul>
+        <a href="#contacto" class="card-cta-lead-outline" data-es>Empezar ahora →</a>
+        <a href="#contacto" class="card-cta-lead-outline" data-en>Get started →</a>
+      </div>
+
+    </div>
+
+    <p class="lead-note">
+      <span data-es>💡 <strong>¿Cómo funciona?</strong> Te configuramos el sistema completo. Solo se cobra <strong>$5–$12</strong> por cada reservación que se complete — nunca por visitas o mensajes, solo por resultados reales.</span>
+      <span data-en>💡 <strong>How does it work?</strong> We set up your complete system. You're only charged <strong>$5–$12</strong> per completed booking — never for visits or messages, only for real results.</span>
+    </p>
+
   </div>
 </section>
 
