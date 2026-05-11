@@ -812,34 +812,92 @@ def pagar():
         <style>
             *{{margin:0;padding:0;box-sizing:border-box}}
             body{{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#134e4a,#065f46);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
-            .card{{background:white;border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center}}
-            .icon{{font-size:56px;margin-bottom:16px}}
-            h1{{font-size:22px;color:#111;margin-bottom:8px}}
-            .sub{{font-size:14px;color:#888;margin-bottom:24px}}
-            .info-box{{background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:18px;margin-bottom:24px;text-align:left}}
-            .info-box p{{font-size:14px;color:#166534;line-height:1.7;margin:0}}
-            .info-box strong{{display:block;font-size:15px;margin-bottom:6px;color:#14532d}}
-            .badge{{display:inline-block;background:#dcfce7;color:#166534;font-size:13px;font-weight:600;padding:5px 14px;border-radius:20px;margin-bottom:20px}}
-            a.btn{{display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:white;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;width:100%;box-sizing:border-box}}
-            a.btn:hover{{opacity:0.9}}
-            .footer{{margin-top:20px;font-size:12px;color:#aaa}}
+            .card{{background:white;border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.25)}}
+            .badge{{display:inline-block;background:#dcfce7;color:#166534;font-size:13px;font-weight:600;padding:5px 14px;border-radius:20px;margin-bottom:16px}}
+            h1{{font-size:22px;color:#111;margin-bottom:4px}}
+            .sub{{font-size:14px;color:#888;margin-bottom:20px}}
+            .info-box{{background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:16px;margin-bottom:22px}}
+            .info-box strong{{display:block;font-size:14px;font-weight:700;color:#14532d;margin-bottom:4px}}
+            .info-box p{{font-size:13px;color:#166534;line-height:1.65;margin:0}}
+            label{{font-size:13px;font-weight:500;color:#444;display:block;margin-bottom:5px}}
+            input{{width:100%;padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;margin-bottom:14px;outline:none;font-family:'Segoe UI',sans-serif}}
+            input:focus{{border-color:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,0.1)}}
+            button{{width:100%;padding:14px;background:linear-gradient(135deg,#16a34a,#059669);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Segoe UI',sans-serif;margin-top:4px}}
+            button:disabled{{opacity:0.6;cursor:not-allowed}}
+            #error{{color:#ef4444;font-size:13px;margin-bottom:10px;display:none}}
+            .success{{display:none;text-align:center;padding:16px 0}}
+            .success .check{{font-size:52px;margin-bottom:12px}}
+            .success h2{{font-size:20px;color:#14532d;margin-bottom:8px}}
+            .success p{{font-size:14px;color:#6b7280;line-height:1.6}}
+            .footer{{margin-top:20px;text-align:center;font-size:12px;color:#aaa}}
         </style>
     </head>
     <body>
         <div class="card">
-            <div class="icon">🌱</div>
-            <div class="badge">✅ Setup 100% gratuito</div>
+            <div class="badge">🌱 Setup 100% gratuito</div>
             <h1>Drivft LLC</h1>
             <p class="sub">Basic Lead — Pay per Lead</p>
             <div class="info-box">
                 <strong>¿Cómo funciona?</strong>
-                <p>Te configuramos el sistema completo <strong>sin costo inicial</strong>. Solo pagas <strong>$5 por cada reservación real</strong> que tu sistema genere — nunca por visitas o mensajes.</p>
+                <p>Setup gratis — solo pagas <strong>$5 por cada reservación real</strong> que tu sistema genere. Te contactaremos en menos de 24 horas para configurarlo todo.</p>
             </div>
-            <a href="mailto:{NEGOCIO_EMAIL}?subject=Quiero el plan Basic Lead&body=Hola, quiero empezar con el plan Basic Lead (Pay per Lead). Mi negocio es:" class="btn">
-                📩 Contactar para empezar gratis
-            </a>
-            <p class="footer">Te responderemos en menos de 24 horas para configurar tu sistema.</p>
+
+            <form id="lead-form">
+                <label>Nombre completo</label>
+                <input type="text" id="nombre" placeholder="Juan García" required>
+                <label>Email</label>
+                <input type="email" id="email" placeholder="tu@email.com" required>
+                <label>Teléfono</label>
+                <input type="tel" id="telefono" placeholder="(305) 000-0000">
+                <label>Nombre de tu negocio</label>
+                <input type="text" id="negocio" placeholder="Mi Restaurante LLC" required>
+                <div id="error">Hubo un error. Intenta de nuevo.</div>
+                <button type="submit" id="btn">📩 Empezar gratis — me contactan en 24h</button>
+            </form>
+
+            <div class="success" id="success">
+                <div class="check">🎉</div>
+                <h2>¡Listo! Te contactamos pronto</h2>
+                <p>Recibimos tu información. Un especialista de Drivft LLC te escribirá en menos de 24 horas para configurar tu sistema sin costo.</p>
+            </div>
+
+            <p class="footer">Powered by <strong>Drivft LLC</strong> · contact@getdrivftllc.com</p>
         </div>
+
+        <script>
+            document.getElementById('lead-form').addEventListener('submit', async (e) => {{
+                e.preventDefault();
+                const btn = document.getElementById('btn');
+                btn.disabled = true;
+                btn.textContent = 'Enviando...';
+                document.getElementById('error').style.display = 'none';
+
+                const datos = {{
+                    nombre:   document.getElementById('nombre').value,
+                    email:    document.getElementById('email').value,
+                    telefono: document.getElementById('telefono').value,
+                    negocio:  document.getElementById('negocio').value,
+                }};
+
+                try {{
+                    const res = await fetch('/contacto-lead', {{
+                        method: 'POST',
+                        headers: {{'Content-Type': 'application/json'}},
+                        body: JSON.stringify(datos)
+                    }});
+                    if (res.ok) {{
+                        document.getElementById('lead-form').style.display = 'none';
+                        document.getElementById('success').style.display = 'block';
+                    }} else {{
+                        throw new Error('server error');
+                    }}
+                }} catch {{
+                    document.getElementById('error').style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = '📩 Empezar gratis — me contactan en 24h';
+                }}
+            }});
+        </script>
     </body>
     </html>"""
 
@@ -932,6 +990,53 @@ def pagar():
     </html>
     """
     return html
+
+
+@app.route("/contacto-lead", methods=["POST"])
+def contacto_lead():
+    try:
+        datos  = request.json or {}
+        nombre  = datos.get("nombre",   "—")
+        email   = datos.get("email",    "—")
+        telefono= datos.get("telefono", "—")
+        negocio = datos.get("negocio",  "—")
+
+        gmail_user = os.environ.get("GMAIL_USER")
+        gmail_pass = os.environ.get("GMAIL_PASSWORD")
+        if not gmail_user or not gmail_pass:
+            print("[LEAD] GMAIL_USER/PASSWORD no configurados — prospecto no notificado")
+            return jsonify({"ok": True})   # igual devuelve ok al cliente
+
+        cuerpo = f"""🌱 NUEVO PROSPECTO — Basic Lead (Pay per Lead)
+
+Nombre:   {nombre}
+Email:    {email}
+Teléfono: {telefono}
+Negocio:  {negocio}
+
+Plan solicitado: Basic Lead — $0 setup + $5/reservación
+Fecha:    {datetime.now().strftime("%Y-%m-%d %H:%M")}
+
+Responde en menos de 24 horas para cerrar este cliente.
+"""
+        msg = MIMEMultipart()
+        msg["From"]    = gmail_user
+        msg["To"]      = gmail_user
+        msg["Subject"] = f"🌱 Nuevo prospecto Basic Lead: {negocio} ({nombre})"
+        msg.attach(MIMEText(cuerpo, "plain"))
+
+        servidor = smtplib.SMTP("smtp.gmail.com", 587)
+        servidor.starttls()
+        servidor.login(gmail_user, gmail_pass)
+        servidor.send_message(msg)
+        servidor.quit()
+
+        print(f"[LEAD] Email enviado — {nombre} / {negocio} / {email}")
+        return jsonify({"ok": True})
+
+    except Exception as e:
+        print(f"[LEAD] Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/crear-pago", methods=["POST"])
