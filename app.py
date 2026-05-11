@@ -1120,6 +1120,7 @@ def crear_pago():
         intent = stripe.PaymentIntent.create(
             amount=precios_setup.get(paquete, 50000),
             currency="usd",
+            automatic_payment_methods={"enabled": True},
             metadata={"paquete": paquete, "cliente": datos.get("nombre"), "email": datos.get("email")}
         )
         return jsonify({"client_secret": intent.client_secret})
