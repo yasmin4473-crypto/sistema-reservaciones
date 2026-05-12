@@ -450,6 +450,14 @@ def panel():
     hora_cnt = Counter(_r.get("hora", "") for _r in reservaciones if _r.get("hora"))
     peak_hora, peak_hora_n = hora_cnt.most_common(1)[0] if hora_cnt else ("Sin datos", 0)
 
+    # ── Reporte mensual ────────────────────────────────────────
+    TARIFA_POR_RESERVA = 8          # $8 por reservación (Pay per Lead)
+    mes_actual = datetime.now().strftime("%Y-%m")
+    mes_label  = datetime.now().strftime("%B %Y").capitalize()
+    reservas_mes = [r for r in reservaciones if r.get("fecha", "").startswith(mes_actual)]
+    total_mes    = len(reservas_mes)
+    monto_mes    = total_mes * TARIFA_POR_RESERVA
+
     c1 = COLOR_PRIMARIO
     c2 = COLOR_SECUNDARIO
 
@@ -568,6 +576,30 @@ def panel():
       <div class="stat-val" style="font-size:24px">{peak_hora}</div>
       <div class="stat-label">Hora pico</div>
       <div class="stat-sub">{peak_hora_n} reservación(es)</div>
+    </div>
+  </div>
+
+  <!-- ── Reporte Mensual ───────────────────────────────── -->
+  <div class="card" style="margin-bottom:24px;border-top:3px solid #16A34A">
+    <div class="section-title">💰 Reporte mensual — {mes_label}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:16px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#9A7D5A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Reservas del mes</div>
+        <div style="font-size:36px;font-weight:700;color:{c1};line-height:1">{total_mes}</div>
+        <div style="font-size:12px;color:#9A7D5A;margin-top:4px">reservaciones confirmadas</div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#9A7D5A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Monto a cobrar</div>
+        <div style="font-size:36px;font-weight:700;color:#16A34A;line-height:1">${monto_mes}</div>
+        <div style="font-size:12px;color:#9A7D5A;margin-top:4px">{total_mes} × $8 por reservación</div>
+      </div>
+      <div style="display:flex;align-items:center">
+        <a href="/api/reporte-mensual" target="_blank"
+           style="display:inline-block;padding:10px 18px;background:#16A34A;color:white;
+                  border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">
+          📥 Descargar JSON
+        </a>
+      </div>
     </div>
   </div>
 
@@ -786,6 +818,26 @@ def chat():
 
     no_entiendo = CHATBOT_NO_ENTIENDO_EN if idioma == "en" else CHATBOT_NO_ENTIENDO_ES
     return jsonify({"respuesta": no_entiendo, "idioma": idioma})
+
+
+# ─── REPORTE MENSUAL API ─────────────────────────────────
+@app.route("/api/reporte-mensual", methods=["GET"])
+def api_reporte_mensual():
+    TARIFA_POR_RESERVA = 8
+    mes_actual  = datetime.now().strftime("%Y-%m")
+    mes_label   = datetime.now().strftime("%B %Y").capitalize()
+    reservaciones   = cargar()
+    reservas_mes    = [r for r in reservaciones if r.get("fecha", "").startswith(mes_actual)]
+    total_reservas  = len(reservas_mes)
+    monto_total     = total_reservas * TARIFA_POR_RESERVA
+    return jsonify({
+        "mes":            mes_label,
+        "periodo":        mes_actual,
+        "total_reservas": total_reservas,
+        "tarifa":         f"${TARIFA_POR_RESERVA} por reservacion",
+        "monto_total":    f"${monto_total}",
+        "reservas":       reservas_mes,
+    })
 
 
 # ─── PAGOS CON STRIPE ────────────────────────────────────
