@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session, redirect, url_for
 from flask_cors import CORS
 from notificaciones import mandar_email, mandar_whatsapp, mandar_solicitud_resena, notificar_dueno
 from cliente_config import (
@@ -171,8 +171,27 @@ contact@getdrivftllc.com
 
 app = Flask(__name__)
 CORS(app)
+app.secret_key = os.environ.get("SECRET_KEY", "drivft-dev-secret-2026")
 
-ARCHIVO = "reservaciones.json"
+ARCHIVO          = "reservaciones.json"
+CLIENTES_ARCHIVO = "clientes.json"
+
+
+def cargar_clientes():
+    if not os.path.exists(CLIENTES_ARCHIVO):
+        return []
+    with open(CLIENTES_ARCHIVO, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def guardar_clientes(lista):
+    with open(CLIENTES_ARCHIVO, "w", encoding="utf-8") as f:
+        json.dump(lista, f, indent=2, ensure_ascii=False)
+
+
+def _login_ok():
+    """Devuelve True si la sesión actual está autenticada."""
+    return session.get("autenticado") is True
 
 
 def cargar():
@@ -419,6 +438,8 @@ def whatsapp_entrante():
 # ─── RUTA 3: Panel del dueño ──────────────────────────────
 @app.route("/panel")
 def panel():
+    if not _login_ok():
+        return redirect(url_for("panel_login"))
     reservaciones = cargar()
     hoy       = datetime.now().strftime("%Y-%m-%d")
     hoy_lista = [r for r in reservaciones if r.get("fecha") == hoy]
@@ -1219,6 +1240,266 @@ def pago_exitoso():
     </html>
     """
     return html
+
+
+# ─── LOGIN / LOGOUT ──────────────────────────────────────
+@app.route("/panel-login", methods=["GET", "POST"])
+def panel_login():
+    error = ""
+    if request.method == "POST":
+        usuario = request.form.get("usuario", "")
+        clave   = request.form.get("clave", "")
+        ok_user = os.environ.get("PANEL_USER",     "admin")
+        ok_pass = os.environ.get("PANEL_PASSWORD", "drivft2026")
+        if usuario == ok_user and clave == ok_pass:
+            session["autenticado"] = True
+            return redirect(url_for("panel"))
+        error = "Usuario o contraseña incorrectos."
+
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Login — {NEGOCIO_NOMBRE}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#5C3D8F,#7B5EA7);
+          min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
+    .card{{background:white;border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:400px;
+           box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center}}
+    .icon{{font-size:48px;margin-bottom:12px}}
+    h1{{font-size:22px;font-weight:700;color:#1A1A2E;margin-bottom:4px}}
+    .sub{{font-size:13px;color:#9A7D5A;margin-bottom:28px}}
+    label{{font-size:13px;font-weight:500;color:#444;display:block;text-align:left;margin-bottom:5px}}
+    input{{width:100%;padding:11px 14px;border:1.5px solid #E8DACC;border-radius:10px;
+           font-size:14px;font-family:'Inter',sans-serif;margin-bottom:14px;outline:none}}
+    input:focus{{border-color:#5C3D8F;box-shadow:0 0 0 3px rgba(92,61,143,0.1)}}
+    button{{width:100%;padding:13px;background:linear-gradient(135deg,#5C3D8F,#7B5EA7);
+            color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;
+            cursor:pointer;font-family:'Inter',sans-serif}}
+    button:hover{{opacity:0.9}}
+    .error{{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:8px;
+            padding:10px 14px;font-size:13px;margin-bottom:14px;text-align:left}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">{NEGOCIO_EMOJI}</div>
+    <h1>{NEGOCIO_NOMBRE}</h1>
+    <p class="sub">Panel de administración</p>
+    {"<div class='error'>⚠️ " + error + "</div>" if error else ""}
+    <form method="POST">
+      <label>Usuario</label>
+      <input type="text" name="usuario" placeholder="admin" required autofocus>
+      <label>Contraseña</label>
+      <input type="password" name="clave" placeholder="••••••••" required>
+      <button type="submit">Entrar al panel →</button>
+    </form>
+  </div>
+</body>
+</html>"""
+
+
+@app.route("/panel-logout")
+def panel_logout():
+    session.clear()
+    return redirect(url_for("panel_login"))
+
+
+# ─── ADMIN MAESTRO ────────────────────────────────────────
+@app.route("/admin")
+def admin():
+    if not _login_ok():
+        return redirect(url_for("panel_login"))
+
+    clientes  = cargar_clientes()
+    now       = datetime.now()
+    mes_label = now.strftime("%B %Y").capitalize()
+
+    filas = ""
+    total_monto = 0
+    for c in clientes:
+        monto = c.get("reservas_mes", 0) * c.get("tarifa", 8)
+        total_monto += monto
+        notas = c.get("notas", "") or "—"
+        url   = c.get("url_panel", "")
+        link  = f'<a href="https://{url}" target="_blank" style="color:#5C3D8F;font-size:12px">{url}</a>' if url else "—"
+        plan_badge = {
+            "basic": "#E9D5FF", "standard": "#BFDBFE", "professional": "#BBF7D0",
+            "basic-lead": "#FEF9C3", "standard-lead": "#FED7AA", "professional-lead": "#FECACA"
+        }.get(c.get("plan", "basic"), "#E9D5FF")
+
+        filas += f"""
+<tr>
+  <td><strong>{c.get("negocio","—")}</strong><br><span style="font-size:11px;color:#9A7D5A">{c.get("id","")}</span></td>
+  <td><span style="background:{plan_badge};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600">{c.get("plan","—")}</span></td>
+  <td>{c.get("fecha_inicio","—")}</td>
+  <td>{link}</td>
+  <td style="text-align:center;font-weight:700">{c.get("reservas_mes",0)}</td>
+  <td style="text-align:center;font-weight:700;color:#16A34A">${monto}</td>
+  <td style="font-size:12px;color:#9A7D5A">{notas}</td>
+  <td>
+    <form method="POST" action="/admin/eliminar-cliente" style="display:inline">
+      <input type="hidden" name="id" value="{c.get("id","")}">
+      <button type="submit" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;
+              padding:4px 10px;font-size:12px;cursor:pointer" onclick="return confirm('¿Eliminar?')">✕</button>
+    </form>
+  </td>
+</tr>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin — Drivft LLC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{font-family:'Inter',sans-serif;background:#F8F5FF;min-height:100vh}}
+    .topbar{{background:linear-gradient(135deg,#5C3D8F,#7B5EA7);padding:18px 32px;
+             display:flex;justify-content:space-between;align-items:center}}
+    .topbar h1{{color:white;font-size:18px;font-weight:700}}
+    .topbar-links a{{color:rgba(255,255,255,0.85);font-size:13px;margin-left:16px;text-decoration:none}}
+    .topbar-links a:hover{{color:white}}
+    .container{{padding:28px 32px;max-width:1200px;margin:0 auto}}
+    .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}}
+    .stat{{background:white;border-radius:16px;padding:20px 24px;
+           box-shadow:0 2px 12px rgba(92,61,143,0.08);border-top:3px solid #7B5EA7}}
+    .stat-val{{font-size:32px;font-weight:700;color:#5C3D8F;line-height:1}}
+    .stat-label{{font-size:13px;color:#9A7D5A;margin-top:6px}}
+    .card{{background:white;border-radius:16px;padding:24px;
+           box-shadow:0 2px 12px rgba(92,61,143,0.08);margin-bottom:24px}}
+    .card-title{{font-size:14px;font-weight:700;color:#1A1A2E;margin-bottom:18px}}
+    table{{width:100%;border-collapse:collapse}}
+    th{{text-align:left;font-size:11px;font-weight:700;color:#9A7D5A;
+        text-transform:uppercase;letter-spacing:0.06em;padding:0 14px 12px}}
+    td{{padding:12px 14px;font-size:13px;color:#1A1A2E;border-top:1px solid #F3EFFF}}
+    tr:hover td{{background:#FAF8FF}}
+    .btn-primary{{display:inline-block;padding:10px 20px;background:linear-gradient(135deg,#5C3D8F,#7B5EA7);
+                  color:white;border-radius:10px;font-size:13px;font-weight:600;
+                  text-decoration:none;cursor:pointer;border:none;font-family:'Inter',sans-serif}}
+    .form-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}}
+    label{{font-size:12px;font-weight:600;color:#5C3D8F;display:block;margin-bottom:4px}}
+    input,select,textarea{{width:100%;padding:9px 12px;border:1.5px solid #E8DACC;border-radius:8px;
+                           font-size:13px;font-family:'Inter',sans-serif;outline:none}}
+    input:focus,select:focus,textarea:focus{{border-color:#5C3D8F}}
+    .total-row{{background:#F3EFFF!important;font-weight:700}}
+    @media(max-width:600px){{.container{{padding:16px}}.topbar{{padding:14px 16px}}th,td{{padding:8px 6px}}}}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🚀 Drivft LLC — Admin Maestro</h1>
+  <div class="topbar-links">
+    <a href="/panel">Panel cliente</a>
+    <a href="/panel-logout">Cerrar sesión</a>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val">{len(clientes)}</div>
+      <div class="stat-label">Clientes activos</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">${total_monto}</div>
+      <div class="stat-label">A cobrar este mes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">{sum(c.get("reservas_mes",0) for c in clientes)}</div>
+      <div class="stat-label">Reservas totales ({mes_label})</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">${sum(c.get("tarifa",8) for c in clientes)}</div>
+      <div class="stat-label">Tarifa promedio / reserva</div>
+    </div>
+  </div>
+
+  <!-- Tabla de clientes -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div class="card-title">📋 Clientes — {mes_label}</div>
+      <button class="btn-primary" onclick="document.getElementById('form-nuevo').style.display=document.getElementById('form-nuevo').style.display==='none'?'block':'none'">
+        + Agregar cliente
+      </button>
+    </div>
+
+    {"<table><tr><th>Negocio</th><th>Plan</th><th>Inicio</th><th>URL Panel</th><th style='text-align:center'>Reservas</th><th style='text-align:center'>Monto</th><th>Notas</th><th></th></tr>"
+    + filas
+    + f"<tr class='total-row'><td colspan='4'>TOTAL</td><td style='text-align:center'>{sum(c.get('reservas_mes',0) for c in clientes)}</td><td style='text-align:center;color:#16A34A'>${total_monto}</td><td colspan='2'></td></tr>"
+    + "</table>" if clientes else "<p style='color:#9A7D5A;text-align:center;padding:24px'>No hay clientes aún. Agrega el primero →</p>"}
+  </div>
+
+  <!-- Formulario nuevo cliente -->
+  <div class="card" id="form-nuevo" style="display:none">
+    <div class="card-title">➕ Agregar nuevo cliente</div>
+    <form method="POST" action="/admin/agregar-cliente">
+      <div class="form-grid">
+        <div><label>ID único</label><input type="text" name="id" placeholder="cliente-002" required></div>
+        <div><label>Nombre del negocio</label><input type="text" name="negocio" placeholder="Salon Maria" required></div>
+        <div>
+          <label>Plan</label>
+          <select name="plan">
+            <option value="basic">basic</option>
+            <option value="standard">standard</option>
+            <option value="professional">professional</option>
+            <option value="basic-lead">basic-lead</option>
+            <option value="standard-lead">standard-lead</option>
+            <option value="professional-lead">professional-lead</option>
+          </select>
+        </div>
+        <div><label>Tarifa por reserva ($)</label><input type="number" name="tarifa" value="8" min="0"></div>
+        <div><label>Fecha de inicio</label><input type="date" name="fecha_inicio" value="{now.strftime('%Y-%m-%d')}"></div>
+        <div><label>URL del panel</label><input type="text" name="url_panel" placeholder="negocio.railway.app"></div>
+        <div style="grid-column:1/-1"><label>Notas</label><textarea name="notas" rows="2" placeholder="Notas internas..."></textarea></div>
+      </div>
+      <div style="margin-top:16px">
+        <button type="submit" class="btn-primary">Guardar cliente</button>
+      </div>
+    </form>
+  </div>
+
+</div>
+</body>
+</html>"""
+
+
+@app.route("/admin/agregar-cliente", methods=["POST"])
+def admin_agregar_cliente():
+    if not _login_ok():
+        return redirect(url_for("panel_login"))
+    clientes = cargar_clientes()
+    nuevo = {{
+        "id":           request.form.get("id", "").strip(),
+        "negocio":      request.form.get("negocio", "").strip(),
+        "plan":         request.form.get("plan", "basic"),
+        "tarifa":       int(request.form.get("tarifa", 8)),
+        "fecha_inicio": request.form.get("fecha_inicio", ""),
+        "url_panel":    request.form.get("url_panel", "").strip(),
+        "reservas_mes": 0,
+        "notas":        request.form.get("notas", "").strip(),
+    }}
+    if nuevo["id"] and nuevo["negocio"]:
+        clientes.append(nuevo)
+        guardar_clientes(clientes)
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/eliminar-cliente", methods=["POST"])
+def admin_eliminar_cliente():
+    if not _login_ok():
+        return redirect(url_for("panel_login"))
+    cliente_id = request.form.get("id", "")
+    clientes   = cargar_clientes()
+    clientes   = [c for c in clientes if c.get("id") != cliente_id]
+    guardar_clientes(clientes)
+    return redirect(url_for("admin"))
 
 
 if __name__ == "__main__":
