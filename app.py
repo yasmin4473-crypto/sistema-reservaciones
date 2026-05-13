@@ -190,8 +190,13 @@ def guardar_clientes(lista):
 
 
 def _login_ok():
-    """Devuelve True si la sesión actual está autenticada."""
+    """Devuelve True si la sesión actual está autenticada (panel cliente)."""
     return session.get("autenticado") is True
+
+
+def _admin_ok():
+    """Devuelve True si la sesión admin está autenticada."""
+    return session.get("admin_autenticado") is True
 
 
 def cargar():
@@ -1308,143 +1313,330 @@ def panel_logout():
     return redirect(url_for("panel_login"))
 
 
-# ─── ADMIN MAESTRO ────────────────────────────────────────
-@app.route("/admin")
-def admin():
-    if not _login_ok():
-        return redirect(url_for("panel_login"))
-
-    clientes  = cargar_clientes()
-    now       = datetime.now()
-    mes_label = now.strftime("%B %Y").capitalize()
-
-    filas = ""
-    total_monto = 0
-    for c in clientes:
-        monto = c.get("reservas_mes", 0) * c.get("tarifa", 8)
-        total_monto += monto
-        notas = c.get("notas", "") or "—"
-        url   = c.get("url_panel", "")
-        link  = f'<a href="https://{url}" target="_blank" style="color:#5C3D8F;font-size:12px">{url}</a>' if url else "—"
-        plan_badge = {
-            "basic": "#E9D5FF", "standard": "#BFDBFE", "professional": "#BBF7D0",
-            "basic-lead": "#FEF9C3", "standard-lead": "#FED7AA", "professional-lead": "#FECACA"
-        }.get(c.get("plan", "basic"), "#E9D5FF")
-
-        filas += f"""
-<tr>
-  <td><strong>{c.get("negocio","—")}</strong><br><span style="font-size:11px;color:#9A7D5A">{c.get("id","")}</span></td>
-  <td><span style="background:{plan_badge};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600">{c.get("plan","—")}</span></td>
-  <td>{c.get("fecha_inicio","—")}</td>
-  <td>{link}</td>
-  <td style="text-align:center;font-weight:700">{c.get("reservas_mes",0)}</td>
-  <td style="text-align:center;font-weight:700;color:#16A34A">${monto}</td>
-  <td style="font-size:12px;color:#9A7D5A">{notas}</td>
-  <td>
-    <form method="POST" action="/admin/eliminar-cliente" style="display:inline">
-      <input type="hidden" name="id" value="{c.get("id","")}">
-      <button type="submit" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;
-              padding:4px 10px;font-size:12px;cursor:pointer" onclick="return confirm('¿Eliminar?')">✕</button>
-    </form>
-  </td>
-</tr>"""
+# ─── ADMIN MAESTRO (login propio, separado del /panel) ───
+@app.route("/admin-login", methods=["GET", "POST"])
+def admin_login():
+    error = ""
+    if request.method == "POST":
+        usuario = request.form.get("usuario", "")
+        clave   = request.form.get("clave", "")
+        ok_user = os.environ.get("ADMIN_USER",     "drivft")
+        ok_pass = os.environ.get("ADMIN_PASSWORD", "drivft-admin-2026")
+        if usuario == ok_user and clave == ok_pass:
+            session["admin_autenticado"] = True
+            return redirect(url_for("admin"))
+        error = "Credenciales incorrectas."
 
     return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Admin — Drivft LLC</title>
+  <title>Admin Login — Drivft LLC</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *{{margin:0;padding:0;box-sizing:border-box}}
-    body{{font-family:'Inter',sans-serif;background:#F8F5FF;min-height:100vh}}
-    .topbar{{background:linear-gradient(135deg,#5C3D8F,#7B5EA7);padding:18px 32px;
-             display:flex;justify-content:space-between;align-items:center}}
-    .topbar h1{{color:white;font-size:18px;font-weight:700}}
-    .topbar-links a{{color:rgba(255,255,255,0.85);font-size:13px;margin-left:16px;text-decoration:none}}
+    body{{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#3B1F6A,#5C3D8F,#7B5EA7);
+          min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
+    .card{{background:white;border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:400px;
+           box-shadow:0 24px 64px rgba(0,0,0,0.3);text-align:center}}
+    .logo{{font-size:44px;margin-bottom:10px}}
+    .badge{{display:inline-block;background:#EDE9FE;color:#5C3D8F;font-size:11px;
+            font-weight:700;padding:4px 12px;border-radius:20px;margin-bottom:14px;letter-spacing:0.06em}}
+    h1{{font-size:22px;font-weight:700;color:#1A1A2E;margin-bottom:3px}}
+    .sub{{font-size:13px;color:#9A7D5A;margin-bottom:28px}}
+    label{{font-size:13px;font-weight:600;color:#5C3D8F;display:block;text-align:left;margin-bottom:5px}}
+    input{{width:100%;padding:11px 14px;border:1.5px solid #E8DACC;border-radius:10px;
+           font-size:14px;font-family:'Inter',sans-serif;margin-bottom:14px;outline:none}}
+    input:focus{{border-color:#5C3D8F;box-shadow:0 0 0 3px rgba(92,61,143,0.12)}}
+    button{{width:100%;padding:13px;background:linear-gradient(135deg,#5C3D8F,#7B5EA7);
+            color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;
+            cursor:pointer;font-family:'Inter',sans-serif;letter-spacing:0.02em}}
+    button:hover{{opacity:0.9}}
+    .error{{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:8px;
+            padding:10px 14px;font-size:13px;margin-bottom:14px;text-align:left}}
+    .footer{{margin-top:20px;font-size:11px;color:#C4B8D8}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🚀</div>
+    <div class="badge">ADMIN MAESTRO</div>
+    <h1>Drivft LLC</h1>
+    <p class="sub">Acceso exclusivo para el equipo Drivft</p>
+    {"<div class='error'>⚠️ " + error + "</div>" if error else ""}
+    <form method="POST">
+      <label>Usuario</label>
+      <input type="text" name="usuario" placeholder="drivft" required autofocus>
+      <label>Contraseña</label>
+      <input type="password" name="clave" placeholder="••••••••" required>
+      <button type="submit">Entrar al admin →</button>
+    </form>
+    <p class="footer">Variables de entorno: ADMIN_USER / ADMIN_PASSWORD</p>
+  </div>
+</body>
+</html>"""
+
+
+@app.route("/admin-logout")
+def admin_logout():
+    session.pop("admin_autenticado", None)
+    return redirect(url_for("admin_login"))
+
+
+@app.route("/admin")
+def admin():
+    if not _admin_ok():
+        return redirect(url_for("admin_login"))
+
+    clientes  = cargar_clientes()
+    now       = datetime.now()
+    mes_label = now.strftime("%B %Y").capitalize()
+
+    # ── Stats globales ──────────────────────────────────────
+    activos         = [c for c in clientes if c.get("status", "activo") == "activo"]
+    total_mensual   = sum(c.get("mensualidad", 0) for c in activos)
+    total_reservas  = sum(c.get("reservas_mes", 0) for c in activos)
+    total_leads_amt = sum(
+        c.get("reservas_mes", 0) * c.get("tarifa_por_reserva", 0) for c in activos
+    )
+    gran_total = total_mensual + total_leads_amt
+
+    # ── Cards de clientes ───────────────────────────────────
+    PLAN_COLORS = {
+        "basic":             ("#EDE9FE", "#5B21B6"),
+        "standard":          ("#DBEAFE", "#1D4ED8"),
+        "professional":      ("#D1FAE5", "#065F46"),
+        "basic-lead":        ("#FEF9C3", "#854D0E"),
+        "standard-lead":     ("#FED7AA", "#9A3412"),
+        "professional-lead": ("#FCE7F3", "#9D174D"),
+    }
+    STATUS_COLORS = {"activo": ("#D1FAE5", "#065F46"), "inactivo": ("#FEE2E2", "#991B1B"), "prueba": ("#FEF9C3", "#854D0E")}
+
+    cards_html = ""
+    for c in clientes:
+        plan      = c.get("plan", "basic")
+        status    = c.get("status", "activo")
+        c_negocio = c.get("negocio", "este cliente")
+        pb, pt = PLAN_COLORS.get(plan, ("#EDE9FE", "#5B21B6"))
+        sb, st = STATUS_COLORS.get(status, ("#E5E7EB", "#374151"))
+        mensual  = c.get("mensualidad", 0)
+        tpr      = c.get("tarifa_por_reserva", 0)
+        reservas = c.get("reservas_mes", 0)
+        lead_amt = reservas * tpr
+        subtotal = mensual + lead_amt
+        notas    = c.get("notas", "") or "—"
+
+        cards_html += f"""
+<div class="cliente-card" data-status="{status}">
+  <div class="card-header">
+    <div>
+      <div class="card-negocio">{c.get("negocio","—")}</div>
+      <div class="card-id">{c.get("id","")}</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
+      <span style="background:{pb};color:{pt};padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700">{plan}</span>
+      <span style="background:{sb};color:{st};padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700">{status}</span>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="metric">
+      <span class="metric-label">Mensualidad</span>
+      <span class="metric-val" style="color:#5C3D8F">${mensual:,}/mes</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Tarifa por reserva</span>
+      <span class="metric-val">${tpr}/reserva</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Reservas del mes</span>
+      <span class="metric-val">{reservas} × ${tpr} = <strong style="color:#16A34A">${lead_amt:,}</strong></span>
+    </div>
+    <div class="metric" style="background:#F3EFFF;border-radius:8px;padding:10px 12px;margin-top:4px">
+      <span class="metric-label" style="font-weight:700;color:#5C3D8F">Total a cobrar</span>
+      <span class="metric-val" style="font-size:18px;font-weight:700;color:#5C3D8F">${subtotal:,}</span>
+    </div>
+    <div class="metric" style="margin-top:6px">
+      <span class="metric-label">Inicio</span>
+      <span class="metric-val" style="font-size:12px">{c.get("fecha_inicio","—")}</span>
+    </div>
+    {"<div class='metric'><span class='metric-label'>Notas</span><span class='metric-val' style='font-size:12px;color:#9A7D5A'>" + notas + "</span></div>" if notas != "—" else ""}
+  </div>
+  <div class="card-footer">
+    <form method="POST" action="/admin/eliminar-cliente" style="display:inline">
+      <input type="hidden" name="id" value="{c.get("id","")}">
+      <button type="submit" class="btn-danger" onclick="return confirm('Eliminar a {c_negocio}?')">
+        🗑 Eliminar
+      </button>
+    </form>
+  </div>
+</div>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Maestro — Drivft LLC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{{margin:0;padding:0;box-sizing:border-box}}
+    body{{font-family:'Inter',sans-serif;background:#F3F0FA;min-height:100vh}}
+
+    /* ── Topbar ── */
+    .topbar{{background:linear-gradient(135deg,#3B1F6A,#5C3D8F,#7B5EA7);
+             padding:18px 32px;display:flex;justify-content:space-between;align-items:center}}
+    .topbar-left{{display:flex;align-items:center;gap:14px}}
+    .topbar h1{{color:white;font-size:18px;font-weight:800;letter-spacing:-0.02em}}
+    .topbar-badge{{background:rgba(255,255,255,0.18);color:white;font-size:10px;
+                   font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.08em}}
+    .topbar-links a{{color:rgba(255,255,255,0.8);font-size:13px;margin-left:20px;text-decoration:none;font-weight:500}}
     .topbar-links a:hover{{color:white}}
-    .container{{padding:28px 32px;max-width:1200px;margin:0 auto}}
-    .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}}
-    .stat{{background:white;border-radius:16px;padding:20px 24px;
-           box-shadow:0 2px 12px rgba(92,61,143,0.08);border-top:3px solid #7B5EA7}}
-    .stat-val{{font-size:32px;font-weight:700;color:#5C3D8F;line-height:1}}
-    .stat-label{{font-size:13px;color:#9A7D5A;margin-top:6px}}
-    .card{{background:white;border-radius:16px;padding:24px;
-           box-shadow:0 2px 12px rgba(92,61,143,0.08);margin-bottom:24px}}
-    .card-title{{font-size:14px;font-weight:700;color:#1A1A2E;margin-bottom:18px}}
-    table{{width:100%;border-collapse:collapse}}
-    th{{text-align:left;font-size:11px;font-weight:700;color:#9A7D5A;
-        text-transform:uppercase;letter-spacing:0.06em;padding:0 14px 12px}}
-    td{{padding:12px 14px;font-size:13px;color:#1A1A2E;border-top:1px solid #F3EFFF}}
-    tr:hover td{{background:#FAF8FF}}
-    .btn-primary{{display:inline-block;padding:10px 20px;background:linear-gradient(135deg,#5C3D8F,#7B5EA7);
-                  color:white;border-radius:10px;font-size:13px;font-weight:600;
+
+    /* ── Layout ── */
+    .container{{padding:28px 32px;max-width:1280px;margin:0 auto}}
+
+    /* ── Stats ── */
+    .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px}}
+    .stat{{background:white;border-radius:16px;padding:22px 24px;
+           box-shadow:0 2px 16px rgba(92,61,143,0.09);border-top:4px solid #7B5EA7}}
+    .stat-icon{{font-size:24px;margin-bottom:8px}}
+    .stat-val{{font-size:34px;font-weight:800;color:#5C3D8F;line-height:1;letter-spacing:-0.03em}}
+    .stat-label{{font-size:12px;font-weight:600;color:#9A7D5A;margin-top:6px;text-transform:uppercase;letter-spacing:0.06em}}
+    .stat-sub{{font-size:11px;color:#C4B8D8;margin-top:3px}}
+
+    /* ── Section header ── */
+    .section-header{{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}}
+    .section-title{{font-size:16px;font-weight:700;color:#1A1A2E}}
+
+    /* ── Botones ── */
+    .btn-primary{{display:inline-block;padding:11px 22px;
+                  background:linear-gradient(135deg,#5C3D8F,#7B5EA7);
+                  color:white;border-radius:10px;font-size:13px;font-weight:700;
                   text-decoration:none;cursor:pointer;border:none;font-family:'Inter',sans-serif}}
-    .form-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}}
-    label{{font-size:12px;font-weight:600;color:#5C3D8F;display:block;margin-bottom:4px}}
-    input,select,textarea{{width:100%;padding:9px 12px;border:1.5px solid #E8DACC;border-radius:8px;
-                           font-size:13px;font-family:'Inter',sans-serif;outline:none}}
-    input:focus,select:focus,textarea:focus{{border-color:#5C3D8F}}
-    .total-row{{background:#F3EFFF!important;font-weight:700}}
-    @media(max-width:600px){{.container{{padding:16px}}.topbar{{padding:14px 16px}}th,td{{padding:8px 6px}}}}
+    .btn-primary:hover{{opacity:0.9}}
+    .btn-danger{{background:#FEE2E2;color:#DC2626;border:none;border-radius:8px;
+                 padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;
+                 font-family:'Inter',sans-serif}}
+    .btn-danger:hover{{background:#FECACA}}
+
+    /* ── Filtros ── */
+    .filters{{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}}
+    .filter-btn{{padding:7px 16px;border-radius:20px;border:1.5px solid #DDD6FE;background:white;
+                 font-size:12px;font-weight:600;cursor:pointer;color:#7C3AED;font-family:'Inter',sans-serif}}
+    .filter-btn.active{{background:#5C3D8F;color:white;border-color:#5C3D8F}}
+
+    /* ── Cards grid ── */
+    .cards-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;margin-bottom:32px}}
+    .cliente-card{{background:white;border-radius:16px;
+                   box-shadow:0 2px 16px rgba(92,61,143,0.09);
+                   border-top:4px solid #5C3D8F;overflow:hidden;transition:transform 0.15s,box-shadow 0.15s}}
+    .cliente-card:hover{{transform:translateY(-2px);box-shadow:0 8px 28px rgba(92,61,143,0.15)}}
+    .card-header{{padding:18px 20px 14px;display:flex;justify-content:space-between;
+                  align-items:flex-start;border-bottom:1px solid #F3EFFF}}
+    .card-negocio{{font-size:15px;font-weight:700;color:#1A1A2E}}
+    .card-id{{font-size:11px;color:#C4B8D8;margin-top:2px;font-family:monospace}}
+    .card-body{{padding:16px 20px}}
+    .metric{{display:flex;justify-content:space-between;align-items:center;
+             padding:7px 0;border-bottom:1px solid #F7F4FF}}
+    .metric:last-child{{border-bottom:none}}
+    .metric-label{{font-size:12px;color:#9A7D5A;font-weight:500}}
+    .metric-val{{font-size:13px;font-weight:600;color:#1A1A2E}}
+    .card-footer{{padding:12px 20px;background:#FAF8FF;
+                  display:flex;justify-content:flex-end;border-top:1px solid #F3EFFF}}
+
+    /* ── Formulario agregar ── */
+    .form-card{{background:white;border-radius:16px;padding:28px;
+                box-shadow:0 2px 16px rgba(92,61,143,0.09);margin-bottom:24px;display:none}}
+    .form-card.visible{{display:block}}
+    .form-title{{font-size:15px;font-weight:700;color:#1A1A2E;margin-bottom:20px}}
+    .form-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}}
+    .form-group label{{font-size:12px;font-weight:600;color:#5C3D8F;display:block;margin-bottom:5px}}
+    .form-group input,.form-group select,.form-group textarea{{
+      width:100%;padding:10px 13px;border:1.5px solid #E8DACC;border-radius:9px;
+      font-size:13px;font-family:'Inter',sans-serif;outline:none;color:#1A1A2E}}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{{border-color:#5C3D8F;box-shadow:0 0 0 3px rgba(92,61,143,0.1)}}
+    .empty-state{{text-align:center;padding:48px 24px;color:#9A7D5A}}
+    .empty-state .empty-icon{{font-size:48px;margin-bottom:12px}}
+    .empty-state p{{font-size:14px}}
+
+    @media(max-width:640px){{
+      .container{{padding:16px}}
+      .topbar{{padding:14px 16px;flex-direction:column;gap:10px;text-align:center}}
+      .cards-grid{{grid-template-columns:1fr}}
+    }}
   </style>
 </head>
 <body>
 
 <div class="topbar">
-  <h1>🚀 Drivft LLC — Admin Maestro</h1>
+  <div class="topbar-left">
+    <span style="font-size:30px">🚀</span>
+    <div>
+      <h1>Drivft LLC</h1>
+      <span class="topbar-badge">ADMIN MAESTRO</span>
+    </div>
+  </div>
   <div class="topbar-links">
-    <a href="/panel">Panel cliente</a>
-    <a href="/panel-logout">Cerrar sesión</a>
+    <a href="/panel">↗ Panel demo</a>
+    <a href="/admin-logout">Cerrar sesión</a>
   </div>
 </div>
 
 <div class="container">
 
+  <!-- ── Stats ─────────────────────────────────────── -->
   <div class="stats">
     <div class="stat">
-      <div class="stat-val">{len(clientes)}</div>
+      <div class="stat-icon">👥</div>
+      <div class="stat-val">{len(activos)}</div>
       <div class="stat-label">Clientes activos</div>
+      <div class="stat-sub">{len(clientes)} en total</div>
     </div>
     <div class="stat">
-      <div class="stat-val">${total_monto}</div>
-      <div class="stat-label">A cobrar este mes</div>
+      <div class="stat-icon">💳</div>
+      <div class="stat-val">${total_mensual:,}</div>
+      <div class="stat-label">Mensualidades</div>
+      <div class="stat-sub">Suma de mensualidades activas</div>
     </div>
     <div class="stat">
-      <div class="stat-val">{sum(c.get("reservas_mes",0) for c in clientes)}</div>
-      <div class="stat-label">Reservas totales ({mes_label})</div>
+      <div class="stat-icon">📅</div>
+      <div class="stat-val">{total_reservas}</div>
+      <div class="stat-label">Reservas del mes</div>
+      <div class="stat-sub">{mes_label}</div>
     </div>
     <div class="stat">
-      <div class="stat-val">${sum(c.get("tarifa",8) for c in clientes)}</div>
-      <div class="stat-label">Tarifa promedio / reserva</div>
+      <div class="stat-icon">💰</div>
+      <div class="stat-val">${gran_total:,}</div>
+      <div class="stat-label">Total a cobrar</div>
+      <div class="stat-sub">Mensual + leads este mes</div>
     </div>
   </div>
 
-  <!-- Tabla de clientes -->
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-      <div class="card-title">📋 Clientes — {mes_label}</div>
-      <button class="btn-primary" onclick="document.getElementById('form-nuevo').style.display=document.getElementById('form-nuevo').style.display==='none'?'block':'none'">
-        + Agregar cliente
-      </button>
-    </div>
-
-    {"<table><tr><th>Negocio</th><th>Plan</th><th>Inicio</th><th>URL Panel</th><th style='text-align:center'>Reservas</th><th style='text-align:center'>Monto</th><th>Notas</th><th></th></tr>"
-    + filas
-    + f"<tr class='total-row'><td colspan='4'>TOTAL</td><td style='text-align:center'>{sum(c.get('reservas_mes',0) for c in clientes)}</td><td style='text-align:center;color:#16A34A'>${total_monto}</td><td colspan='2'></td></tr>"
-    + "</table>" if clientes else "<p style='color:#9A7D5A;text-align:center;padding:24px'>No hay clientes aún. Agrega el primero →</p>"}
+  <!-- ── Header + botón ────────────────────────────── -->
+  <div class="section-header">
+    <div class="section-title">📋 Clientes — {mes_label}</div>
+    <button class="btn-primary" onclick="toggleForm()">+ Agregar cliente</button>
   </div>
 
-  <!-- Formulario nuevo cliente -->
-  <div class="card" id="form-nuevo" style="display:none">
-    <div class="card-title">➕ Agregar nuevo cliente</div>
+  <!-- ── Filtros ────────────────────────────────────── -->
+  <div class="filters">
+    <button class="filter-btn active" onclick="filtrar('todos',this)">Todos ({len(clientes)})</button>
+    <button class="filter-btn" onclick="filtrar('activo',this)">Activos ({len(activos)})</button>
+    <button class="filter-btn" onclick="filtrar('inactivo',this)">Inactivos ({len([c for c in clientes if c.get("status")=="inactivo"])})</button>
+    <button class="filter-btn" onclick="filtrar('prueba',this)">Prueba ({len([c for c in clientes if c.get("status")=="prueba"])})</button>
+  </div>
+
+  <!-- ── Formulario agregar ─────────────────────────── -->
+  <div class="form-card" id="form-nuevo">
+    <div class="form-title">➕ Nuevo cliente</div>
     <form method="POST" action="/admin/agregar-cliente">
       <div class="form-grid">
-        <div><label>ID único</label><input type="text" name="id" placeholder="cliente-002" required></div>
-        <div><label>Nombre del negocio</label><input type="text" name="negocio" placeholder="Salon Maria" required></div>
-        <div>
-          <label>Plan</label>
+        <div class="form-group"><label>ID único</label>
+          <input type="text" name="id" placeholder="cliente-002" required></div>
+        <div class="form-group"><label>Nombre del negocio</label>
+          <input type="text" name="negocio" placeholder="Salon Maria" required></div>
+        <div class="form-group"><label>Plan</label>
           <select name="plan">
             <option value="basic">basic</option>
             <option value="standard">standard</option>
@@ -1454,37 +1646,76 @@ def admin():
             <option value="professional-lead">professional-lead</option>
           </select>
         </div>
-        <div><label>Tarifa por reserva ($)</label><input type="number" name="tarifa" value="8" min="0"></div>
-        <div><label>Fecha de inicio</label><input type="date" name="fecha_inicio" value="{now.strftime('%Y-%m-%d')}"></div>
-        <div><label>URL del panel</label><input type="text" name="url_panel" placeholder="negocio.railway.app"></div>
-        <div style="grid-column:1/-1"><label>Notas</label><textarea name="notas" rows="2" placeholder="Notas internas..."></textarea></div>
+        <div class="form-group"><label>Mensualidad ($)</label>
+          <input type="number" name="mensualidad" value="175" min="0"></div>
+        <div class="form-group"><label>Tarifa por reserva ($)</label>
+          <input type="number" name="tarifa_por_reserva" value="8" min="0"></div>
+        <div class="form-group"><label>Reservas del mes</label>
+          <input type="number" name="reservas_mes" value="0" min="0"></div>
+        <div class="form-group"><label>Fecha de inicio</label>
+          <input type="date" name="fecha_inicio" value="{now.strftime('%Y-%m-%d')}"></div>
+        <div class="form-group"><label>Status</label>
+          <select name="status">
+            <option value="activo">activo</option>
+            <option value="inactivo">inactivo</option>
+            <option value="prueba">prueba</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1"><label>Notas internas</label>
+          <textarea name="notas" rows="2" placeholder="Cualquier detalle relevante..."></textarea>
+        </div>
       </div>
-      <div style="margin-top:16px">
-        <button type="submit" class="btn-primary">Guardar cliente</button>
+      <div style="margin-top:18px;display:flex;gap:10px">
+        <button type="submit" class="btn-primary">💾 Guardar cliente</button>
+        <button type="button" onclick="toggleForm()" style="padding:11px 20px;border:1.5px solid #DDD6FE;
+          background:white;border-radius:10px;font-size:13px;font-weight:600;color:#7C3AED;cursor:pointer;font-family:'Inter',sans-serif">
+          Cancelar
+        </button>
       </div>
     </form>
   </div>
 
+  <!-- ── Cards de clientes ─────────────────────────── -->
+  {"<div class='cards-grid' id='cards-grid'>" + cards_html + "</div>" if clientes else
+   "<div class='empty-state'><div class='empty-icon'>🏢</div><p>No hay clientes aún.<br>Agrega el primero con el botón de arriba.</p></div>"}
+
 </div>
+
+<script>
+  function toggleForm() {{
+    const f = document.getElementById('form-nuevo');
+    f.classList.toggle('visible');
+    if (f.classList.contains('visible')) f.scrollIntoView({{behavior:'smooth',block:'start'}});
+  }}
+  function filtrar(status, btn) {{
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.cliente-card').forEach(card => {{
+      card.style.display = (status === 'todos' || card.dataset.status === status) ? '' : 'none';
+    }});
+  }}
+</script>
+
 </body>
 </html>"""
 
 
 @app.route("/admin/agregar-cliente", methods=["POST"])
 def admin_agregar_cliente():
-    if not _login_ok():
-        return redirect(url_for("panel_login"))
+    if not _admin_ok():
+        return redirect(url_for("admin_login"))
     clientes = cargar_clientes()
-    nuevo = {{
-        "id":           request.form.get("id", "").strip(),
-        "negocio":      request.form.get("negocio", "").strip(),
-        "plan":         request.form.get("plan", "basic"),
-        "tarifa":       int(request.form.get("tarifa", 8)),
-        "fecha_inicio": request.form.get("fecha_inicio", ""),
-        "url_panel":    request.form.get("url_panel", "").strip(),
-        "reservas_mes": 0,
-        "notas":        request.form.get("notas", "").strip(),
-    }}
+    nuevo = {
+        "id":                request.form.get("id", "").strip(),
+        "negocio":           request.form.get("negocio", "").strip(),
+        "plan":              request.form.get("plan", "basic"),
+        "tarifa_por_reserva":int(request.form.get("tarifa_por_reserva", 8)),
+        "mensualidad":       int(request.form.get("mensualidad", 0)),
+        "fecha_inicio":      request.form.get("fecha_inicio", ""),
+        "reservas_mes":      int(request.form.get("reservas_mes", 0)),
+        "status":            request.form.get("status", "activo"),
+        "notas":             request.form.get("notas", "").strip(),
+    }
     if nuevo["id"] and nuevo["negocio"]:
         clientes.append(nuevo)
         guardar_clientes(clientes)
@@ -1493,8 +1724,8 @@ def admin_agregar_cliente():
 
 @app.route("/admin/eliminar-cliente", methods=["POST"])
 def admin_eliminar_cliente():
-    if not _login_ok():
-        return redirect(url_for("panel_login"))
+    if not _admin_ok():
+        return redirect(url_for("admin_login"))
     cliente_id = request.form.get("id", "")
     clientes   = cargar_clientes()
     clientes   = [c for c in clientes if c.get("id") != cliente_id]
