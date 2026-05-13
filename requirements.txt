@@ -6,3 +6,4 @@ stripe
 reportlab
 python-dotenv
 icalendar
+gunicorn
