@@ -86,8 +86,8 @@ def generar_factura_pdf(nombre, email, paquete, monto, numero_factura):
 
     service_data = [
         ['Description', 'Amount'],
-        [f'{paquete.title()} Package - Setup Fee\n{p["desc"]}', f'${monto:,.2f}'],
-        [f'Monthly maintenance (starting next month)', f'${p["mensual"]}/mo'],
+        [f"{paquete.title()} Package - Setup Fee\n{p['desc']}", f"${monto:,.2f}"],
+        [f"Monthly maintenance (starting next month)", f"${p['mensual']}/mo"],
     ]
     service_table = Table(service_data, colWidths=[350, 150])
     service_table.setStyle(TableStyle([
@@ -1400,7 +1400,9 @@ def admin():
     total_leads_amt = sum(
         c.get("reservas_mes", 0) * c.get("tarifa_por_reserva", 0) for c in activos
     )
-    gran_total = total_mensual + total_leads_amt
+    gran_total   = total_mensual + total_leads_amt
+    n_inactivos  = len([c for c in clientes if c.get("status") == "inactivo"])
+    n_prueba     = len([c for c in clientes if c.get("status") == "prueba"])
 
     # ── Cards de clientes ───────────────────────────────────
     PLAN_COLORS = {
@@ -1415,9 +1417,11 @@ def admin():
 
     cards_html = ""
     for c in clientes:
-        plan      = c.get("plan", "basic")
-        status    = c.get("status", "activo")
-        c_negocio = c.get("negocio", "este cliente")
+        plan          = c.get("plan", "basic")
+        status        = c.get("status", "activo")
+        c_negocio     = c.get("negocio", "este cliente")
+        c_id          = c.get("id", "")
+        c_fecha       = c.get("fecha_inicio", "—")
         pb, pt = PLAN_COLORS.get(plan, ("#EDE9FE", "#5B21B6"))
         sb, st = STATUS_COLORS.get(status, ("#E5E7EB", "#374151"))
         mensual  = c.get("mensualidad", 0)
@@ -1426,13 +1430,18 @@ def admin():
         lead_amt = reservas * tpr
         subtotal = mensual + lead_amt
         notas    = c.get("notas", "") or "—"
+        notas_html = (
+            f"<div class='metric'><span class='metric-label'>Notas</span>"
+            f"<span class='metric-val' style='font-size:12px;color:#9A7D5A'>{notas}</span></div>"
+            if notas != "—" else ""
+        )
 
         cards_html += f"""
 <div class="cliente-card" data-status="{status}">
   <div class="card-header">
     <div>
-      <div class="card-negocio">{c.get("negocio","—")}</div>
-      <div class="card-id">{c.get("id","")}</div>
+      <div class="card-negocio">{c_negocio}</div>
+      <div class="card-id">{c_id}</div>
     </div>
     <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
       <span style="background:{pb};color:{pt};padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700">{plan}</span>
@@ -1450,7 +1459,7 @@ def admin():
     </div>
     <div class="metric">
       <span class="metric-label">Reservas del mes</span>
-      <span class="metric-val">{reservas} × ${tpr} = <strong style="color:#16A34A">${lead_amt:,}</strong></span>
+      <span class="metric-val">{reservas} x ${tpr} = <strong style="color:#16A34A">${lead_amt:,}</strong></span>
     </div>
     <div class="metric" style="background:#F3EFFF;border-radius:8px;padding:10px 12px;margin-top:4px">
       <span class="metric-label" style="font-weight:700;color:#5C3D8F">Total a cobrar</span>
@@ -1458,13 +1467,13 @@ def admin():
     </div>
     <div class="metric" style="margin-top:6px">
       <span class="metric-label">Inicio</span>
-      <span class="metric-val" style="font-size:12px">{c.get("fecha_inicio","—")}</span>
+      <span class="metric-val" style="font-size:12px">{c_fecha}</span>
     </div>
-    {"<div class='metric'><span class='metric-label'>Notas</span><span class='metric-val' style='font-size:12px;color:#9A7D5A'>" + notas + "</span></div>" if notas != "—" else ""}
+    {notas_html}
   </div>
   <div class="card-footer">
     <form method="POST" action="/admin/eliminar-cliente" style="display:inline">
-      <input type="hidden" name="id" value="{c.get("id","")}">
+      <input type="hidden" name="id" value="{c_id}">
       <button type="submit" class="btn-danger" onclick="return confirm('Eliminar a {c_negocio}?')">
         🗑 Eliminar
       </button>
@@ -1623,8 +1632,8 @@ def admin():
   <div class="filters">
     <button class="filter-btn active" onclick="filtrar('todos',this)">Todos ({len(clientes)})</button>
     <button class="filter-btn" onclick="filtrar('activo',this)">Activos ({len(activos)})</button>
-    <button class="filter-btn" onclick="filtrar('inactivo',this)">Inactivos ({len([c for c in clientes if c.get("status")=="inactivo"])})</button>
-    <button class="filter-btn" onclick="filtrar('prueba',this)">Prueba ({len([c for c in clientes if c.get("status")=="prueba"])})</button>
+    <button class="filter-btn" onclick="filtrar('inactivo',this)">Inactivos ({n_inactivos})</button>
+    <button class="filter-btn" onclick="filtrar('prueba',this)">Prueba ({n_prueba})</button>
   </div>
 
   <!-- ── Formulario agregar ─────────────────────────── -->
