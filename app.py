@@ -917,7 +917,7 @@ def pagar():
             <p class="sub">Basic Lead — Pay per Lead</p>
             <div class="info-box">
                 <strong>¿Cómo funciona?</strong>
-                <p>Setup gratis — solo pagas <strong>$5 por cada reservación real</strong> que tu sistema genere. Te contactaremos en menos de 24 horas para configurarlo todo.</p>
+                <p>Setup gratis — solo pagas <strong>$7 por cada reservación real</strong> que tu sistema genere. Te contactaremos en menos de 24 horas para configurarlo todo.</p>
             </div>
 
             <form id="lead-form">
@@ -1160,7 +1160,7 @@ Email:    {email}
 Teléfono: {telefono}
 Negocio:  {negocio}
 
-Plan solicitado: Basic Lead — $0 setup + $5/reservación
+Plan solicitado: Basic Lead — $0 setup + $7/reservación
 Fecha:    {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 Responde en menos de 24 horas para cerrar este cliente.
