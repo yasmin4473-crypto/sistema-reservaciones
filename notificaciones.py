@@ -400,6 +400,9 @@ def enviar_email_con_factura(destinatario, nombre, fecha, hora, servicio, monto_
         deposito = monto_servicio * 0.5 if monto_servicio > 0 else 0
         saldo = monto_servicio - deposito
 
+        # Crear info de pago fuera del f-string para evitar backslashes en expresiones
+        pago_info = f'<p style="font-size:13px;color:#555;margin:0 0 16px;"><strong>Informacion de Pago:</strong><br>Deposito (50%): ${deposito:,.2f}<br>Saldo Pendiente: ${saldo:,.2f}</p>' if monto_servicio > 0 else ""
+
         html = f"""
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto;background:#f9f9f9;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10);">
           <div style="background:linear-gradient(135deg,#5C3D8F,#7B5EA7);padding:36px 32px 28px;text-align:center;">
@@ -414,7 +417,7 @@ def enviar_email_con_factura(destinatario, nombre, fecha, hora, servicio, monto_
               <tr><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;">Fecha</td><td style="padding:10px 14px;color:#333;">{fecha}</td></tr>
               <tr style="background:#f3eeff;"><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;">Hora</td><td style="padding:10px 14px;color:#333;">{hora}</td></tr>
             </table>
-            {"<p style=\"font-size:13px;color:#555;margin:0 0 16px;\"><strong>Informacion de Pago:</strong><br>Deposito (50%): $" + f"{deposito:,.2f}<br>Saldo Pendiente: ${saldo:,.2f}</p>" if monto_servicio > 0 else ""}
+            {pago_info}
             <div style="text-align:center;margin-bottom:24px;">
               <a href="{cal_url}" target="_blank"
                  style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#5C3D8F,#7B5EA7);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;box-shadow:0 4px 12px rgba(92,61,143,0.30);">
