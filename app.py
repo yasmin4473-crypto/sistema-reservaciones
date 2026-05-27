@@ -1,8 +1,11 @@
 from dotenv import load_dotenv
 load_dotenv()
-from flask import Flask, request, jsonify, session, redirect, url_for
+from flask import Flask, request, jsonify, session, redirect, url_for, make_response
 from flask_cors import CORS
-from notificaciones import mandar_email, mandar_whatsapp, mandar_solicitud_resena, notificar_dueno
+from notificaciones import (
+    mandar_email, mandar_whatsapp, mandar_solicitud_resena, notificar_dueno,
+    mandar_recordatorio_sms, enviar_email_con_factura, enviar_reporte_mensual
+)
 from cliente_config import (
     NEGOCIO_NOMBRE, NEGOCIO_SLOGAN, NEGOCIO_EMOJI,
     NEGOCIO_TELEFONO, NEGOCIO_EMAIL, NEGOCIO_DIRECCION, NEGOCIO_WHATSAPP,
@@ -177,6 +180,45 @@ ARCHIVO          = "reservaciones.json"
 CLIENTES_ARCHIVO = "clientes.json"
 
 
+def _programar_reporte_mensual():
+    """
+    Programa el reporte mensual para ejecutarse el 1ro de cada mes a las 8am.
+    """
+    def _ejecutar_reporte():
+        try:
+            destinatario = os.environ.get("GMAIL_USER") or NEGOCIO_EMAIL
+            if destinatario:
+                enviar_reporte_mensual(destinatario)
+        except Exception as e:
+            print(f"[Reporte Programado] Error: {e}")
+
+        # Reprogramar para el proximo mes
+        _programar_reporte_mensual()
+
+    ahora = datetime.now()
+
+    # Siguiente dia 1 del mes
+    if ahora.month == 12:
+        proximo_mes = ahora.replace(year=ahora.year + 1, month=1, day=1, hour=8, minute=0, second=0, microsecond=0)
+    else:
+        proximo_mes = ahora.replace(month=ahora.month + 1, day=1, hour=8, minute=0, second=0, microsecond=0)
+
+    # Si ya paso hoy las 8am del 1ro, programar para el proximo mes
+    if ahora.day == 1 and ahora.hour >= 8:
+        if ahora.month == 12:
+            proximo_mes = ahora.replace(year=ahora.year + 1, month=1, day=1, hour=8, minute=0, second=0, microsecond=0)
+        else:
+            proximo_mes = ahora.replace(month=ahora.month + 1, day=1, hour=8, minute=0, second=0, microsecond=0)
+
+    delay = (proximo_mes - ahora).total_seconds()
+
+    if delay > 0:
+        print(f"[Reporte Mensual] Programado para {proximo_mes.strftime('%Y-%m-%d %H:%M:%S')} (en {delay:.0f}s)")
+        t = threading.Timer(delay, _ejecutar_reporte)
+        t.daemon = True
+        t.start()
+
+
 def cargar_clientes():
     if not os.path.exists(CLIENTES_ARCHIVO):
         return []
@@ -241,7 +283,10 @@ def _render_index():
     for marcador, valor in reemplazos.items():
         html = html.replace(marcador, valor)
 
-    return html
+    response = make_response(html)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    return response
 
 
 def _render_web():
@@ -316,7 +361,10 @@ def _render_web():
     for marcador, valor in reemplazos.items():
         html = html.replace(marcador, valor)
 
-    return html
+    response = make_response(html)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    return response
 
 
 @app.route("/web")
@@ -326,8 +374,7 @@ def web():
 
 @app.route("/landing")
 def landing():
-    with open("landing.html", "r", encoding="utf-8") as f:
-        return f.read()
+    return _render_web()
 
 
 @app.route("/demo")
@@ -337,8 +384,7 @@ def demo():
 
 @app.route("/")
 def inicio():
-    from flask import redirect
-    return redirect("/landing")
+    return _render_index()
 
 
 # ─── RUTA 1: Formulario web ───────────────────────────────
@@ -358,7 +404,14 @@ def reservar():
     notificar_dueno(datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"], "web")
 
     if datos.get("email"):
-        mandar_email(datos["email"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"])
+        # ── Email de confirmacion con factura PDF ─────────────────
+        enviar_email_con_factura(
+            datos["email"],
+            datos["nombre"],
+            datos["fecha"],
+            datos["hora"],
+            datos["servicio"]
+        )
 
         # ── Solicitud de reseña 24 h después ────────────────────────
         if GOOGLE_MAPS_REVIEW_URL:
@@ -373,6 +426,27 @@ def reservar():
 
     if datos.get("telefono"):
         mandar_whatsapp(datos["telefono"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"])
+
+        # ── SMS Recordatorio 24h antes de la cita ──────────────────
+        from datetime import datetime as dt_parse
+        try:
+            fecha_cita = dt_parse.strptime(datos["fecha"], "%Y-%m-%d")
+            ahora = datetime.now()
+
+            # Calcular segundos hasta 24 horas antes de la cita
+            tiempo_recordatorio = (fecha_cita - ahora).total_seconds() - 86400
+
+            if tiempo_recordatorio > 0:
+                t_sms = threading.Timer(
+                    tiempo_recordatorio,
+                    mandar_recordatorio_sms,
+                    args=[datos["telefono"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"]]
+                )
+                t_sms.daemon = True
+                t_sms.start()
+                print(f"[SMS Recordatorio] Timer 24h antes programado para {datos['telefono']}")
+        except Exception as e:
+            print(f"[SMS Recordatorio] Error calculando tiempo: {e}")
 
     print(f"✅ Nueva reservación: {datos['nombre']} — {datos['fecha']} {datos['hora']}")
     return jsonify({"ok": True})
@@ -1743,5 +1817,8 @@ def admin_eliminar_cliente():
 
 
 if __name__ == "__main__":
+    # Programar el reporte mensual automatico (1ro de mes a las 8am)
+    _programar_reporte_mensual()
+
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=False, host="0.0.0.0", port=port)
