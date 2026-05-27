@@ -428,9 +428,8 @@ def reservar():
         mandar_whatsapp(datos["telefono"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"])
 
         # ── SMS Recordatorio 24h antes de la cita ──────────────────
-        from datetime import datetime as dt_parse
         try:
-            fecha_cita = dt_parse.strptime(datos["fecha"], "%Y-%m-%d")
+            fecha_cita = datetime.strptime(datos["fecha"], "%Y-%m-%d")
             ahora = datetime.now()
 
             # Calcular segundos hasta 24 horas antes de la cita
