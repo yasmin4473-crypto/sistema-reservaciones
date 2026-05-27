@@ -372,9 +372,20 @@ def web():
     return _render_web()
 
 
+def _render_landing():
+    """Sirve landing.html (página principal Drivft) sin caché."""
+    with open("landing.html", "r", encoding="utf-8") as f:
+        html = f.read()
+    response = make_response(html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
 @app.route("/landing")
 def landing():
-    return _render_web()
+    return _render_landing()
 
 
 @app.route("/demo")
