@@ -4,7 +4,8 @@ from flask import Flask, request, jsonify, session, redirect, url_for, make_resp
 from flask_cors import CORS
 from notificaciones import (
     mandar_email, mandar_whatsapp, mandar_solicitud_resena, notificar_dueno,
-    mandar_recordatorio_sms, enviar_email_con_factura, enviar_reporte_mensual
+    mandar_recordatorio_sms, mandar_sms_recordatorio,
+    enviar_email_con_factura, enviar_reporte_mensual
 )
 from cliente_config import (
     NEGOCIO_NOMBRE, NEGOCIO_SLOGAN, NEGOCIO_EMOJI,
@@ -438,25 +439,15 @@ def reservar():
     if datos.get("telefono"):
         mandar_whatsapp(datos["telefono"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"])
 
-        # ── SMS Recordatorio 24h antes de la cita ──────────────────
-        try:
-            fecha_cita = datetime.strptime(datos["fecha"], "%Y-%m-%d")
-            ahora = datetime.now()
-
-            # Calcular segundos hasta 24 horas antes de la cita
-            tiempo_recordatorio = (fecha_cita - ahora).total_seconds() - 86400
-
-            if tiempo_recordatorio > 0:
-                t_sms = threading.Timer(
-                    tiempo_recordatorio,
-                    mandar_recordatorio_sms,
-                    args=[datos["telefono"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"]]
-                )
-                t_sms.daemon = True
-                t_sms.start()
-                print(f"[SMS Recordatorio] Timer 24h antes programado para {datos['telefono']}")
-        except Exception as e:
-            print(f"[SMS Recordatorio] Error calculando tiempo: {e}")
+        # ── SMS Recordatorio 24h después de la reservación ─────────
+        t_sms = threading.Timer(
+            86400,
+            mandar_sms_recordatorio,
+            args=[datos["telefono"], datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"]]
+        )
+        t_sms.daemon = True
+        t_sms.start()
+        print(f"[SMS Recordatorio] Timer 24h programado para {datos['telefono']}")
 
     print(f"✅ Nueva reservación: {datos['nombre']} — {datos['fecha']} {datos['hora']}")
     return jsonify({"ok": True})

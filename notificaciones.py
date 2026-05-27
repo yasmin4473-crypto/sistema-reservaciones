@@ -262,6 +262,37 @@ def mandar_solicitud_resena(destinatario, nombre, negocio_nombre, google_maps_ur
         return False
 
 
+def mandar_sms_recordatorio(destinatario, nombre, fecha, hora, servicio):
+    """
+    Envia recordatorio SMS via Twilio 24h antes de la cita.
+    Se llama desde app.py con threading.Timer(86400).
+    """
+    if not all([TWILIO_SID, TWILIO_TOKEN, TWILIO_NUM]):
+        print("[SMS Recordatorio] Credenciales Twilio no configuradas")
+        return False
+    try:
+        client = Client(TWILIO_SID, TWILIO_TOKEN)
+        num = destinatario.strip().replace(" ", "").replace("-", "")
+        if not num.startswith("+"):
+            num = "+" + num
+        body = (
+            f"Recordatorio: Tienes una cita manana en {NEGOCIO_NOMBRE}\n"
+            f"Servicio: {servicio}\n"
+            f"Fecha: {fecha}  Hora: {hora}\n"
+            "Responde si necesitas cambiar o cancelar."
+        )
+        client.messages.create(
+            body=body,
+            from_=f"whatsapp:{TWILIO_NUM}",
+            to=f"whatsapp:{num}",
+        )
+        print(f"[SMS Recordatorio] Enviado a {destinatario}")
+        return True
+    except Exception as e:
+        print(f"[SMS Recordatorio] Error: {e}")
+        return False
+
+
 def mandar_recordatorio_sms(destinatario, nombre, fecha, hora, servicio):
     """
     Envia recordatorio SMS 24h antes de la reservacion usando Twilio.
@@ -465,6 +496,117 @@ def enviar_email_con_factura(destinatario, nombre, fecha, hora, servicio, monto_
         return False
 
 
+def generar_reporte_pdf(reservaciones_mes, mes_label):
+    """
+    Genera PDF del reporte mensual usando ReportLab.
+    Incluye: total reservaciones, servicios mas populares,
+    ingresos estimados y tasa de cancelacion.
+    Retorna BytesIO listo para adjuntar en email.
+    """
+    from collections import Counter
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            rightMargin=40, leftMargin=40,
+                            topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # ── Header ──────────────────────────────────────────────
+    story.append(Paragraph(
+        NEGOCIO_NOMBRE,
+        ParagraphStyle('rpt_hdr', fontSize=22, textColor=colors.HexColor('#5C3D8F'),
+                       spaceAfter=4, fontName='Helvetica-Bold')
+    ))
+    story.append(Paragraph(
+        f"Reporte Mensual — {mes_label}",
+        ParagraphStyle('rpt_sub', fontSize=13, textColor=colors.HexColor('#888888'), spaceAfter=2)
+    ))
+    story.append(Paragraph(
+        f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+        ParagraphStyle('rpt_gen', fontSize=10, textColor=colors.HexColor('#aaaaaa'), spaceAfter=16)
+    ))
+
+    # Línea divisoria
+    story.append(Table(
+        [['']],
+        colWidths=[520], rowHeights=[2],
+        style=TableStyle([('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#5C3D8F'))])
+    ))
+    story.append(Spacer(1, 20))
+
+    # ── Estadísticas ─────────────────────────────────────────
+    total      = len(reservaciones_mes)
+    ingresos   = total * 8  # $8 por reserva (Pay per Lead)
+    canceladas = len([r for r in reservaciones_mes if r.get("estado") == "cancelada"])
+    tasa_cx    = (canceladas / total * 100) if total > 0 else 0
+    web_cnt    = len([r for r in reservaciones_mes if r.get("canal") == "web"])
+    wa_cnt     = len([r for r in reservaciones_mes if r.get("canal") == "whatsapp"])
+    serv_cnt   = Counter(r.get("servicio", "") for r in reservaciones_mes if r.get("servicio"))
+    top_svc    = serv_cnt.most_common(1)[0] if serv_cnt else ("N/A", 0)
+
+    data = [
+        ['Metrica',                             'Valor'],
+        ['Total Reservaciones',                  str(total)],
+        ['Ingresos Estimados (Pay per Lead)',     f'${ingresos:,}'],
+        ['Servicio Mas Popular',                  f'{top_svc[0]}  ({top_svc[1]} reservas)'],
+        ['Tasa de Cancelacion',                   f'{canceladas} canceladas  ({tasa_cx:.1f}%)'],
+        ['Reservaciones por Web',                 str(web_cnt)],
+        ['Reservaciones por WhatsApp',            str(wa_cnt)],
+    ]
+
+    resumen = Table(data, colWidths=[340, 180])
+    resumen.setStyle(TableStyle([
+        ('BACKGROUND',     (0, 0), (-1,  0), colors.HexColor('#5C3D8F')),
+        ('TEXTCOLOR',      (0, 0), (-1,  0), colors.white),
+        ('FONTNAME',       (0, 0), (-1,  0), 'Helvetica-Bold'),
+        ('FONTSIZE',       (0, 0), (-1, -1), 11),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F0FF')]),
+        ('PADDING',        (0, 0), (-1, -1), 10),
+        ('GRID',           (0, 0), (-1, -1), 0.5, colors.HexColor('#D1C4E9')),
+        ('ALIGN',          (1, 0), ( 1, -1), 'CENTER'),
+        ('FONTNAME',       (0, 1), ( 0, -1), 'Helvetica-Bold'),
+        ('TEXTCOLOR',      (0, 1), ( 0, -1), colors.HexColor('#3D2560')),
+    ]))
+    story.append(resumen)
+    story.append(Spacer(1, 30))
+
+    # ── Top servicios ────────────────────────────────────────
+    if serv_cnt:
+        story.append(Paragraph(
+            "Top Servicios del Mes",
+            ParagraphStyle('sec_tit', fontSize=14, textColor=colors.HexColor('#5C3D8F'),
+                           spaceAfter=10, fontName='Helvetica-Bold')
+        ))
+        svc_data = [['Servicio', 'Reservaciones']] + [
+            [svc, str(cnt)] for svc, cnt in serv_cnt.most_common(5)
+        ]
+        svc_table = Table(svc_data, colWidths=[380, 140])
+        svc_table.setStyle(TableStyle([
+            ('BACKGROUND',     (0, 0), (-1,  0), colors.HexColor('#3D2560')),
+            ('TEXTCOLOR',      (0, 0), (-1,  0), colors.white),
+            ('FONTNAME',       (0, 0), (-1,  0), 'Helvetica-Bold'),
+            ('FONTSIZE',       (0, 0), (-1, -1), 10),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F0FF')]),
+            ('PADDING',        (0, 0), (-1, -1), 9),
+            ('GRID',           (0, 0), (-1, -1), 0.5, colors.HexColor('#D1C4E9')),
+            ('ALIGN',          (1, 0), ( 1, -1), 'CENTER'),
+        ]))
+        story.append(svc_table)
+        story.append(Spacer(1, 20))
+
+    # ── Footer ───────────────────────────────────────────────
+    story.append(Spacer(1, 10))
+    story.append(Paragraph(
+        f"{NEGOCIO_NOMBRE}  |  Reporte generado automaticamente el 1ro de cada mes",
+        ParagraphStyle('rpt_foot', fontSize=9, textColor=colors.HexColor('#aaaaaa'), alignment=1)
+    ))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
 def enviar_reporte_mensual(destinatario_email):
     """
     Envia reporte mensual con estadisticas de reservaciones al dueno.
@@ -541,11 +683,21 @@ def enviar_reporte_mensual(destinatario_email):
         </div>
         """
 
+        # Generar PDF adjunto con generar_reporte_pdf()
+        pdf_buffer = generar_reporte_pdf(reservas_mes, mes_label)
+        pdf_b64 = base64.b64encode(pdf_buffer.read()).decode()
+
         resend.Emails.send({
             "from": f"{NEGOCIO_NOMBRE} <reservaciones@getdrivftllc.com>",
             "to": destinatario_email,
             "subject": f"📊 Reporte Mensual — {mes_label}",
             "html": html,
+            "attachments": [
+                {
+                    "filename": f"reporte_{mes_anterior}.pdf",
+                    "content": pdf_b64,
+                }
+            ],
         })
 
         print(f"[Reporte Mensual] Enviado a {destinatario_email}")
