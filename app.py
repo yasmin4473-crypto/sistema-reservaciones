@@ -279,6 +279,15 @@ def _render_index():
         "{{SERVICIOS_OPTIONS}}":     opciones_servicios,
         "{{HORAS_OPTIONS}}":         opciones_horas,
         "{{CHATBOT_BIENVENIDA_ES}}": CHATBOT_BIENVENIDA_ES,
+        # Markers que antes aparecían visibles en pantalla
+        "{{SECCION_RESERVA}}":    "Tu reservación",
+        "{{LABEL_SERVICIO}}":     "Servicio",
+        "{{BTN_RESERVAR}}":       "Reservar",
+        "{{SERVICIO_EJEMPLO}}":   SERVICIOS[0] if SERVICIOS else "Servicio",
+        "{{TEXTO_EXITO}}":        "¡Reservación confirmada!",
+        # Stripe / depósito
+        "{{STRIPE_PUBLIC_KEY}}":  os.environ.get("STRIPE_PUBLIC_KEY", ""),
+        "{{DEPOSITO_MONTO}}":     "25",
     }
 
     for marcador, valor in reemplazos.items():
@@ -397,6 +406,25 @@ def demo():
 @app.route("/")
 def inicio():
     return _render_index()
+
+
+# ─── DEPÓSITO OPCIONAL (Stripe) ──────────────────────────
+@app.route("/crear-deposito", methods=["POST"])
+def crear_deposito():
+    try:
+        datos  = request.json or {}
+        intent = stripe.PaymentIntent.create(
+            amount=2500,   # $25.00 USD
+            currency="usd",
+            metadata={
+                "cliente":  datos.get("nombre", ""),
+                "email":    datos.get("email", ""),
+                "servicio": datos.get("servicio", ""),
+            }
+        )
+        return jsonify({"client_secret": intent.client_secret})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ─── RUTA 1: Formulario web ───────────────────────────────

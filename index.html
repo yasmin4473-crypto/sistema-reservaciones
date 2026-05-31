@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{NEGOCIO_NOMBRE}} — Reservaciones</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://js.stripe.com/v3/"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -108,6 +109,16 @@
       transition: border 0.2s, box-shadow 0.2s;
       background: #FDFAF6;
       color: #3A1A0A;
+      height: 46px;
+      -webkit-appearance: none;
+      appearance: none;
+      box-sizing: border-box;
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235C3D8F' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 38px;
     }
     input::placeholder { color: #C0A888; }
     input:focus, select:focus {
@@ -165,6 +176,48 @@
     }
     .footer a { color: {{COLOR_SECUNDARIO}}; text-decoration: none; }
 
+    /* ── Deposit box ── */
+    .deposit-box {
+      background: linear-gradient(135deg, #F4F0FF, #EDE5FF);
+      border: 1.5px solid rgba(92,61,143,0.22);
+      border-radius: 12px;
+      padding: 15px 18px;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+    .deposit-toggle-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 400;
+      color: #3A1A0A;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .deposit-toggle-label input[type="checkbox"] {
+      width: 17px; height: 17px;
+      margin: 0; flex-shrink: 0;
+      accent-color: {{COLOR_PRIMARIO}};
+    }
+    .deposit-badge {
+      display: inline-block;
+      background: {{COLOR_PRIMARIO}};
+      color: white;
+      font-size: 10.5px; font-weight: 700;
+      padding: 2px 9px; border-radius: 20px;
+      margin-left: 6px; vertical-align: middle;
+    }
+    #card-element-wrap { margin-top: 14px; display: none; }
+    #card-element {
+      padding: 12px 15px;
+      border: 1.5px solid rgba(92,61,143,0.28);
+      border-radius: 10px; background: white;
+    }
+    #card-error { color: #c0392b; font-size: 12px; margin-top: 6px; min-height: 18px; }
+    .deposit-note { font-size: 11.5px; color: {{COLOR_PRIMARIO}}; margin-top: 10px; line-height: 1.5; }
+
     @media (max-width: 420px) {
       .card { padding: 1.6rem 1.3rem; }
       .brand h1 { font-size: 22px; }
@@ -220,6 +273,21 @@
         </div>
       </div>
 
+      <div class="deposit-box">
+        <label class="deposit-toggle-label">
+          <input type="checkbox" id="pagar-deposito">
+          <span>
+            Asegurar cita con depósito
+            <span class="deposit-badge">${{DEPOSITO_MONTO}} · Reserva garantizada 🔒</span>
+          </span>
+        </label>
+        <div id="card-element-wrap">
+          <div id="card-element"></div>
+          <div id="card-error"></div>
+          <p class="deposit-note">🔒 Pago seguro con Stripe. El depósito se aplica al total del servicio.</p>
+        </div>
+      </div>
+
       <button type="submit" id="btn">{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}</button>
     </form>
 
@@ -239,11 +307,32 @@
   <script>
     document.getElementById('fecha').min = new Date().toISOString().split('T')[0];
 
+    // ── Stripe setup ──────────────────────────────────────
+    const stripe   = Stripe('{{STRIPE_PUBLIC_KEY}}');
+    const elements = stripe.elements();
+    const cardEl   = elements.create('card', {
+      style: {
+        base: {
+          fontSize: '14px',
+          color: '#3A1A0A',
+          fontFamily: 'Inter, sans-serif',
+          '::placeholder': { color: '#C0A888' }
+        }
+      }
+    });
+    cardEl.mount('#card-element');
+
+    const chk = document.getElementById('pagar-deposito');
+    chk.addEventListener('change', () => {
+      document.getElementById('card-element-wrap').style.display = chk.checked ? 'block' : 'none';
+      document.getElementById('card-error').textContent = '';
+    });
+
+    // ── Form submit ───────────────────────────────────────
     document.getElementById('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('btn');
       btn.disabled = true;
-      btn.textContent = 'Enviando...';
 
       const datos = {
         nombre:   document.getElementById('nombre').value,
@@ -251,16 +340,46 @@
         telefono: document.getElementById('telefono').value,
         servicio: document.getElementById('servicio').value,
         fecha:    document.getElementById('fecha').value,
-        hora:     document.getElementById('hora').value
+        hora:     document.getElementById('hora').value,
+        deposito: chk.checked
       };
 
+      if (chk.checked) {
+        btn.textContent = 'Procesando depósito…';
+        try {
+          const piRes  = await fetch('/crear-deposito', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre: datos.nombre, email: datos.email, servicio: datos.servicio })
+          });
+          const piData = await piRes.json();
+          if (piData.error) throw new Error(piData.error);
+
+          const { error: stripeErr } = await stripe.confirmCardPayment(piData.client_secret, {
+            payment_method: { card: cardEl, billing_details: { name: datos.nombre, email: datos.email } }
+          });
+          if (stripeErr) {
+            document.getElementById('card-error').textContent = stripeErr.message;
+            btn.disabled = false;
+            btn.textContent = '{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}';
+            return;
+          }
+          datos.deposito_pagado = true;
+        } catch (err) {
+          document.getElementById('card-error').textContent = 'Error de pago: ' + err.message;
+          btn.disabled = false;
+          btn.textContent = '{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}';
+          return;
+        }
+      }
+
+      btn.textContent = 'Confirmando reservación…';
       try {
         const res = await fetch('/reservar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(datos)
         });
-
         if (res.ok) {
           document.getElementById('form').style.display = 'none';
           document.getElementById('success').style.display = 'block';
@@ -272,7 +391,7 @@
       } catch (err) {
         alert('No se pudo conectar. Asegúrate que el servidor está corriendo.');
         btn.disabled = false;
-        btn.textContent = 'Reservar mesa {{NEGOCIO_EMOJI}}';
+        btn.textContent = '{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}';
       }
     });
   </script>
