@@ -293,9 +293,18 @@ def _render_index():
     for marcador, valor in reemplazos.items():
         html = html.replace(marcador, valor)
 
+    # Diagnóstico: detectar markers que quedaron sin reemplazar
+    import re as _re
+    sin_reemplazar = _re.findall(r'\{\{[A-Z_]+\}\}', html)
+    if sin_reemplazar:
+        print(f"[render_index] ⚠️  Markers sin reemplazar: {sin_reemplazar}")
+    else:
+        print("[render_index] ✅ Todos los markers reemplazados OK (v2)")
+
     response = make_response(html)
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
     return response
 
 
