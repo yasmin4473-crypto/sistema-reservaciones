@@ -960,7 +960,7 @@ def obtener_respuesta_chatbot(mensaje):
 
 # ─── Link de reserva de Puerto Rico's Finest (Netlify) ───
 # 👉 PEGA AQUÍ la URL de Netlify. Ej: "https://puerto-ricos-finest.netlify.app"
-RESERVA_LINK_PR = ""
+RESERVA_LINK_PR = "https://tiny-yeot-f15684.netlify.app/"
 
 
 # ─── RUTA: Chatbot web (formulario) ──────────────────────
