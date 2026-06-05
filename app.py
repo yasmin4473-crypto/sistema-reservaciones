@@ -872,10 +872,10 @@ Rules:
 5. Never make up information not listed above.
 """
 
-@app.route("/chat", methods=["POST"])
-def chat():
-    data    = request.json or {}
-    mensaje = data.get("mensaje", "").strip()
+def obtener_respuesta_chatbot(mensaje):
+    """Lógica central del chatbot AI. Recibe el texto del usuario y devuelve
+    (respuesta_texto, idioma). La usan tanto /chat (web) como /sms (Twilio)."""
+    mensaje = (mensaje or "").strip()
 
     # ── DEBUG ────────────────────────────────────────────
     key = _OPENROUTER_API_KEY
@@ -885,11 +885,11 @@ def chat():
 
     if not mensaje:
         print("[CHAT] mensaje vacío → bienvenida")
-        return jsonify({"respuesta": CHATBOT_BIENVENIDA_ES, "idioma": "es"})
+        return CHATBOT_BIENVENIDA_ES, "es"
 
     if not _OPENROUTER_API_KEY:
         print("[CHAT] API key ausente → fallback")
-        return jsonify({"respuesta": "El chatbot no está configurado aún. Escríbenos a " + NEGOCIO_EMAIL, "idioma": "es"})
+        return "El chatbot no está configurado aún. Escríbenos a " + NEGOCIO_EMAIL, "es"
 
     payload = json.dumps({
         "model": "openai/gpt-4o-mini",
@@ -920,7 +920,7 @@ def chat():
 
             respuesta = resultado["choices"][0]["message"]["content"].strip()
             print(f"[CHAT] OpenRouter OK → '{respuesta[:60]}...'")
-            return jsonify({"respuesta": respuesta, "idioma": "auto"})
+            return respuesta, "auto"
 
         except _urllib_req.HTTPError as e:
             if e.code == 429:
@@ -952,10 +952,40 @@ def chat():
     for entrada in FAQ:
         kws = entrada[f"keywords_{idioma}"]
         if any(kw in mensaje_lower for kw in kws):
-            return jsonify({"respuesta": entrada[f"respuesta_{idioma}"], "idioma": idioma})
+            return entrada[f"respuesta_{idioma}"], idioma
 
     no_entiendo = CHATBOT_NO_ENTIENDO_EN if idioma == "en" else CHATBOT_NO_ENTIENDO_ES
-    return jsonify({"respuesta": no_entiendo, "idioma": idioma})
+    return no_entiendo, idioma
+
+
+# ─── Link de reserva de Puerto Rico's Finest (Netlify) ───
+# 👉 PEGA AQUÍ la URL de Netlify. Ej: "https://puerto-ricos-finest.netlify.app"
+RESERVA_LINK_PR = ""
+
+
+# ─── RUTA: Chatbot web (formulario) ──────────────────────
+@app.route("/chat", methods=["POST"])
+def chat():
+    data    = request.json or {}
+    mensaje = data.get("mensaje", "").strip()
+    respuesta, idioma = obtener_respuesta_chatbot(mensaje)
+    return jsonify({"respuesta": respuesta, "idioma": idioma})
+
+
+# ─── RUTA: SMS entrante (Twilio webhook) ─────────────────
+from twilio.twiml.messaging_response import MessagingResponse
+
+@app.route("/sms", methods=["POST"])
+def sms_entrante():
+    mensaje = request.form.get("Body", "").strip()
+    # Reutiliza el mismo chatbot AI que usa /chat
+    respuesta, _idioma = obtener_respuesta_chatbot(mensaje)
+    link = RESERVA_LINK_PR or "(configura RESERVA_LINK_PR en app.py)"
+    respuesta_completa = f"{respuesta}\n\n💈 Reserva aquí: {link}"
+
+    twiml = MessagingResponse()
+    twiml.message(respuesta_completa)
+    return str(twiml)
 
 
 # ─── REPORTE MENSUAL API ─────────────────────────────────
