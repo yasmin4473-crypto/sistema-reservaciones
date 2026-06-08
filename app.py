@@ -1884,6 +1884,308 @@ def admin_eliminar_cliente():
     return redirect(url_for("admin"))
 
 
+@app.route("/privacy-policy")
+def privacy_policy():
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Drivft LLC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F9F7FF;
+      color: #1A1A2E;
+      line-height: 1.75;
+    }
+    header {
+      background: linear-gradient(135deg, #5C3D8F, #7B5EA7);
+      padding: 28px 24px;
+      text-align: center;
+      color: white;
+    }
+    header .logo { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    header .logo span { opacity: 0.7; font-weight: 300; }
+    header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .container {
+      max-width: 740px;
+      margin: 48px auto;
+      padding: 0 24px 80px;
+    }
+    h1 { font-size: 28px; font-weight: 700; color: #5C3D8F; margin-bottom: 6px; }
+    .updated { font-size: 13px; color: #9A7D5A; margin-bottom: 36px; }
+    h2 {
+      font-size: 16px; font-weight: 700; color: #5C3D8F;
+      margin-top: 36px; margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #E8E0FF;
+    }
+    p { font-size: 15px; color: #3A3A5C; margin-bottom: 14px; }
+    ul { margin: 0 0 14px 20px; }
+    ul li { font-size: 15px; color: #3A3A5C; margin-bottom: 6px; }
+    .highlight {
+      background: #EDE8FF;
+      border-left: 4px solid #5C3D8F;
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #3A1A6E;
+    }
+    a { color: #5C3D8F; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: #B0A0CC;
+      border-top: 1px solid #E8E0FF;
+    }
+    footer a { color: #7B5EA7; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Drivft <span>LLC</span></div>
+  <p>Digital Services &amp; Automation Agency</p>
+</header>
+
+<div class="container">
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: June 8, 2026</p>
+
+  <p>Drivft LLC ("we," "us," or "our") operates digital reservation and appointment systems for local businesses. This Privacy Policy explains how we collect, use, and protect the personal information you provide when using our services.</p>
+
+  <h2>1. Information We Collect</h2>
+  <p>When you make a reservation or appointment through our platform, we collect the following information:</p>
+  <ul>
+    <li><strong>Full name</strong> — to identify your reservation</li>
+    <li><strong>Email address</strong> — to send booking confirmations and reminders</li>
+    <li><strong>Phone number</strong> — to send SMS appointment confirmations and reminders</li>
+    <li><strong>Appointment details</strong> — date, time, and service requested</li>
+  </ul>
+
+  <h2>2. How We Use Your Information</h2>
+  <p>Your information is used exclusively to provide and support the reservation service:</p>
+  <ul>
+    <li>Send booking confirmation messages via email and/or SMS</li>
+    <li>Send appointment reminders before your scheduled time</li>
+    <li>Allow the business to manage and fulfill your appointment</li>
+    <li>Respond to customer service inquiries</li>
+  </ul>
+
+  <h2>3. SMS Messaging</h2>
+  <div class="highlight">
+    By providing your phone number, you consent to receive SMS text messages from the business regarding your appointment. Message frequency varies — typically 1–3 messages per booking (confirmation + reminder). Standard message and data rates may apply.
+  </div>
+  <p>To opt out of SMS messages at any time, reply <strong>STOP</strong> to any text message you receive. You will receive one final confirmation message and no further texts will be sent. To re-subscribe, reply <strong>START</strong>. For help, reply <strong>HELP</strong>.</p>
+
+  <h2>4. We Do Not Sell Your Data</h2>
+  <p>We do <strong>not</strong> sell, rent, trade, or share your personal information with third parties for marketing or advertising purposes. Your data is only used to operate the reservation service on behalf of the business you are booking with.</p>
+
+  <h2>5. Data Sharing</h2>
+  <p>We work with trusted service providers to deliver our services, including:</p>
+  <ul>
+    <li><strong>Twilio</strong> — for SMS delivery</li>
+    <li><strong>Google</strong> — for email delivery and calendar services</li>
+    <li><strong>Railway / Cloud Hosting</strong> — for secure server infrastructure</li>
+  </ul>
+  <p>These providers access only the minimum data needed to perform their function and are bound by their own privacy policies.</p>
+
+  <h2>6. Data Retention</h2>
+  <p>Reservation records are retained for up to 12 months to allow businesses to reference past appointments. You may request deletion of your data at any time by contacting us.</p>
+
+  <h2>7. Security</h2>
+  <p>We take reasonable technical and organizational measures to protect your personal information against unauthorized access, loss, or misuse. All data is transmitted over secure HTTPS connections.</p>
+
+  <h2>8. Your Rights</h2>
+  <p>You have the right to:</p>
+  <ul>
+    <li>Request access to the personal data we hold about you</li>
+    <li>Request correction or deletion of your data</li>
+    <li>Opt out of SMS communications at any time by replying <strong>STOP</strong></li>
+  </ul>
+
+  <h2>9. Contact Us</h2>
+  <p>If you have questions about this Privacy Policy or wish to exercise your data rights, contact us at:</p>
+  <p>
+    <strong>Drivft LLC</strong><br>
+    Email: <a href="mailto:contact@getdrivftllc.com">contact@getdrivftllc.com</a><br>
+    Website: <a href="https://getdrivftllc.com">getdrivftllc.com</a>
+  </p>
+
+  <h2>10. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated date. Continued use of the service after changes constitutes your acceptance of the revised policy.</p>
+</div>
+
+<footer>
+  &copy; 2026 Drivft LLC &mdash; <a href="/terms">Terms of Service</a> &mdash; <a href="/privacy-policy">Privacy Policy</a>
+</footer>
+
+</body>
+</html>"""
+    return html
+
+
+@app.route("/terms")
+def terms():
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service — Drivft LLC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F9F7FF;
+      color: #1A1A2E;
+      line-height: 1.75;
+    }
+    header {
+      background: linear-gradient(135deg, #5C3D8F, #7B5EA7);
+      padding: 28px 24px;
+      text-align: center;
+      color: white;
+    }
+    header .logo { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    header .logo span { opacity: 0.7; font-weight: 300; }
+    header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .container {
+      max-width: 740px;
+      margin: 48px auto;
+      padding: 0 24px 80px;
+    }
+    h1 { font-size: 28px; font-weight: 700; color: #5C3D8F; margin-bottom: 6px; }
+    .updated { font-size: 13px; color: #9A7D5A; margin-bottom: 36px; }
+    h2 {
+      font-size: 16px; font-weight: 700; color: #5C3D8F;
+      margin-top: 36px; margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #E8E0FF;
+    }
+    p { font-size: 15px; color: #3A3A5C; margin-bottom: 14px; }
+    ul { margin: 0 0 14px 20px; }
+    ul li { font-size: 15px; color: #3A3A5C; margin-bottom: 6px; }
+    .highlight {
+      background: #EDE8FF;
+      border-left: 4px solid #5C3D8F;
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #3A1A6E;
+    }
+    .sms-box {
+      background: white;
+      border: 1.5px solid #D4C8F0;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 24px 0;
+    }
+    .sms-box h3 { font-size: 14px; font-weight: 700; color: #5C3D8F; margin-bottom: 10px; }
+    .sms-box p { font-size: 14px; margin-bottom: 8px; }
+    .sms-box code {
+      background: #EDE8FF; padding: 2px 8px;
+      border-radius: 5px; font-weight: 600; color: #5C3D8F;
+    }
+    a { color: #5C3D8F; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: #B0A0CC;
+      border-top: 1px solid #E8E0FF;
+    }
+    footer a { color: #7B5EA7; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Drivft <span>LLC</span></div>
+  <p>Digital Services &amp; Automation Agency</p>
+</header>
+
+<div class="container">
+  <h1>Terms of Service</h1>
+  <p class="updated">Last updated: June 8, 2026</p>
+
+  <p>These Terms of Service ("Terms") govern your use of the reservation and appointment scheduling system operated by Drivft LLC ("Drivft," "we," or "us") on behalf of local businesses. By using this service, you agree to these Terms.</p>
+
+  <h2>1. Description of Service</h2>
+  <p>Drivft LLC provides digital reservation and appointment management systems for local service businesses. Our platform allows customers to book appointments online, receive automated confirmation and reminder messages, and communicate with the business.</p>
+  <p>The reservation system is operated by Drivft LLC as a technology service provider. The actual services (spa treatments, restaurant reservations, etc.) are rendered by the individual business, not by Drivft LLC.</p>
+
+  <h2>2. SMS Text Messaging</h2>
+
+  <div class="sms-box">
+    <h3>📱 SMS Program Disclosure</h3>
+    <p><strong>Program:</strong> Appointment confirmation and reminder notifications</p>
+    <p><strong>Message frequency:</strong> 1–3 messages per appointment (confirmation + reminder)</p>
+    <p><strong>Rates:</strong> Message and data rates may apply</p>
+    <p><strong>To get help:</strong> Reply <code>HELP</code></p>
+    <p><strong>To cancel:</strong> Reply <code>STOP</code> at any time</p>
+  </div>
+
+  <p>By providing your mobile phone number when booking an appointment, you consent to receive SMS text messages from the business via Drivft LLC's platform. These messages will include booking confirmations, appointment reminders, and any follow-up needed related to your appointment.</p>
+
+  <h2>3. Opting Out of SMS</h2>
+  <div class="highlight">
+    To stop receiving SMS messages, reply <strong>STOP</strong> to any message. You will receive a one-time confirmation and will not receive further messages. To re-subscribe, reply <strong>START</strong>. For assistance, reply <strong>HELP</strong> or email us at <a href="mailto:contact@getdrivftllc.com">contact@getdrivftllc.com</a>.
+  </div>
+
+  <h2>4. Appointments and Cancellations</h2>
+  <p>Appointment booking through our platform is subject to the individual business's availability and cancellation policy. Drivft LLC is not responsible for:</p>
+  <ul>
+    <li>Service quality or outcome provided by the business</li>
+    <li>Cancellations or rescheduling initiated by the business</li>
+    <li>No-show fees or cancellation charges set by the business</li>
+  </ul>
+  <p>Please contact the business directly for questions about their specific policies.</p>
+
+  <h2>5. User Responsibilities</h2>
+  <p>By using this service, you agree to:</p>
+  <ul>
+    <li>Provide accurate and complete information when booking</li>
+    <li>Not use the platform for any fraudulent or unlawful purpose</li>
+    <li>Not attempt to disrupt or overload our systems</li>
+    <li>Respect the business's scheduling and cancellation policies</li>
+  </ul>
+
+  <h2>6. Limitation of Liability</h2>
+  <p>Drivft LLC provides this platform "as is." We are not liable for any damages arising from use of the reservation system, including but not limited to missed appointments, technical outages, or SMS delivery failures caused by your carrier or network.</p>
+
+  <h2>7. Privacy</h2>
+  <p>Your use of this service is also governed by our <a href="/privacy-policy">Privacy Policy</a>, which explains how we collect and use your personal information.</p>
+
+  <h2>8. Changes to Terms</h2>
+  <p>We reserve the right to update these Terms at any time. Updated Terms will be posted on this page with a new effective date. Continued use of the service after changes constitutes acceptance.</p>
+
+  <h2>9. Contact</h2>
+  <p>
+    <strong>Drivft LLC</strong><br>
+    Email: <a href="mailto:contact@getdrivftllc.com">contact@getdrivftllc.com</a><br>
+    Website: <a href="https://getdrivftllc.com">getdrivftllc.com</a>
+  </p>
+</div>
+
+<footer>
+  &copy; 2026 Drivft LLC &mdash; <a href="/terms">Terms of Service</a> &mdash; <a href="/privacy-policy">Privacy Policy</a>
+</footer>
+
+</body>
+</html>"""
+    return html
+
+
 if __name__ == "__main__":
     # Programar el reporte mensual automatico (1ro de mes a las 8am)
     _programar_reporte_mensual()
