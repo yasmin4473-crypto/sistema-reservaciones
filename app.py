@@ -2186,6 +2186,15 @@ def terms():
     return html
 
 
+@app.route("/privacy")
+def privacy():
+    return """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Privacy Policy - Drivft LLC</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#333}h1,h2{color:#5C3D8F}</style></head><body><h1>Privacy Policy</h1><p>Last updated: June 2026</p><h2>Data We Collect</h2><p>Drivft LLC collects name, phone number, and email address when clients schedule appointments at getdrivftllc.com.</p><h2>How We Use Your Data</h2><p>We use your information solely to send appointment confirmations and reminders via SMS and email. Not for marketing.</p><h2>SMS Messaging</h2><p>By providing your phone number and checking the consent box on our booking form, you agree to receive SMS appointment reminders from Drivft LLC. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe. Reply HELP for help.</p><h2>No Third-Party Sharing</h2><p>We do not sell, share, or transfer your mobile phone number to third parties.</p><h2>Contact</h2><p>contact@getdrivftllc.com or (689) 299-3994.</p></body></html>"""
+
+@app.route("/terms")
+def terms():
+    return """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Terms - Drivft LLC</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#333}h1,h2{color:#5C3D8F}</style></head><body><h1>Terms and Conditions</h1><p>Last updated: June 2026</p><h2>SMS Program</h2><p>Drivft LLC sends appointment reminders to clients who book through getdrivftllc.com.</p><h2>Message Frequency</h2><p>1-3 messages per appointment. Message and data rates may apply.</p><h2>Opt-Out</h2><p>Reply STOP to unsubscribe. Reply HELP for help.</p><h2>Contact</h2><p>contact@getdrivftllc.com | (689) 299-3994</p></body></html>"""
+
+
 if __name__ == "__main__":
     # Programar el reporte mensual automatico (1ro de mes a las 8am)
     _programar_reporte_mensual()
