@@ -5,7 +5,8 @@ from flask_cors import CORS
 from notificaciones import (
     mandar_email, mandar_whatsapp, mandar_solicitud_resena, notificar_dueno,
     mandar_recordatorio_sms, mandar_sms_recordatorio,
-    enviar_email_con_factura, enviar_reporte_mensual
+    enviar_email_con_factura, enviar_reporte_mensual,
+    mandar_sms_confirmacion,
 )
 from cliente_config import (
     NEGOCIO_NOMBRE, NEGOCIO_SLOGAN, NEGOCIO_EMOJI,
@@ -451,6 +452,13 @@ def reservar():
 
     # ── Notificación instantánea al dueño ───────────────────────
     notificar_dueno(datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"], "web")
+
+    # ── SMS de confirmacion inmediata al cliente ─────────────────
+    if datos.get("telefono"):
+        mandar_sms_confirmacion(
+            datos["telefono"], datos["nombre"],
+            datos["fecha"], datos["hora"], datos["servicio"]
+        )
 
     if datos.get("email"):
         # ── Email de confirmacion con factura PDF ─────────────────

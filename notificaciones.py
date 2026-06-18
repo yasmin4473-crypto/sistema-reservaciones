@@ -18,6 +18,7 @@ from cliente_config import NEGOCIO_NOMBRE, NEGOCIO_DIRECCION, NEGOCIO_EMAIL
 TWILIO_SID   = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_NUM   = os.environ.get("TWILIO_WHATSAPP_NUM")
+TWILIO_SMS_NUM = os.environ.get("TWILIO_PHONE_NUMBER")
 RESEND_KEY   = os.environ.get("RESEND_API_KEY")
 
 resend.api_key = RESEND_KEY
@@ -164,6 +165,37 @@ def mandar_whatsapp(destinatario, nombre, fecha, hora, servicio):
         return True
     except Exception as e:
         print(f"[WhatsApp] Error: {e}")
+        return False
+
+
+def mandar_sms_confirmacion(destinatario, nombre, fecha, hora, servicio):
+    """
+    Envia SMS de confirmacion inmediata al cliente via Twilio (SMS regular, no WhatsApp).
+    Se llama desde app.py justo despues de guardar la reservacion.
+    """
+    if not all([TWILIO_SID, TWILIO_TOKEN, TWILIO_SMS_NUM]):
+        print("[SMS Confirmacion] Credenciales Twilio no configuradas (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)")
+        return False
+    try:
+        client = Client(TWILIO_SID, TWILIO_TOKEN)
+        num = destinatario.strip().replace(" ", "").replace("-", "")
+        if not num.startswith("+"):
+            num = "+" + num
+        body = (
+            f"Drivft: ¡Hola {nombre}! Tu cita para {servicio} está confirmada "
+            f"para el {fecha} a las {hora}. "
+            "Te mandaremos un recordatorio mañana. "
+            "Reply STOP to unsubscribe."
+        )
+        client.messages.create(
+            body=body,
+            from_=TWILIO_SMS_NUM,
+            to=num,
+        )
+        print(f"[SMS Confirmacion] Enviado a {destinatario}")
+        return True
+    except Exception as e:
+        print(f"[SMS Confirmacion] Error: {e}")
         return False
 
 
