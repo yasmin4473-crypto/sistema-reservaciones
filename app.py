@@ -1142,65 +1142,242 @@ def pagar():
         print(f"[PAGAR] Stripe error al crear intent: {e}")
         client_secret = ""
 
-    precio_label = ("Setup fee unico + $" + str(p['mensual']//100) + "/mes despues"
-                    if p['mensual'] else "Setup unico — pago por reservacion despues")
+    plan_labels = {
+        "basic":        {"es": "Plan Inicio",      "en": "Starter Plan"},
+        "standard":     {"es": "Plan Crecimiento", "en": "Growth Plan"},
+        "professional": {"es": "Plan Pro",         "en": "Pro Plan"},
+    }
+    plan_label_es = plan_labels.get(paquete, {}).get("es", p['nombre'])
+    plan_label_en = plan_labels.get(paquete, {}).get("en", p['nombre'])
+    precio_label = ("Setup fee único + $" + str(p['mensual']//100) + "/mes después"
+                    if p['mensual'] else "Pago único de configuración")
 
     html = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pago — Drivft LLC</title>
+    <title>{plan_label_es} — Drivft LLC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://js.stripe.com/v3/"></script>
     <style>
-        *{{margin:0;padding:0;box-sizing:border-box}}
-        body{{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);
-              min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}
-        .card{{background:white;border-radius:20px;padding:2rem;width:100%;max-width:480px;
-               box-shadow:0 20px 60px rgba(0,0,0,0.2)}}
-        .badge{{display:inline-block;background:#E1F5EE;color:#085041;font-size:12px;
-                padding:4px 10px;border-radius:20px;margin-bottom:16px}}
-        h1{{font-size:22px;color:#111;margin-bottom:4px}}
-        .sub{{font-size:14px;color:#888;margin-bottom:20px}}
-        .precio{{background:#f5f5f5;border-radius:12px;padding:16px;margin-bottom:20px}}
-        .precio-val{{font-size:32px;font-weight:600;color:#5C3D8F}}
-        .precio-label{{font-size:13px;color:#888;margin-top:4px}}
-        label{{font-size:13px;font-weight:500;color:#444;display:block;margin-bottom:5px}}
-        input{{width:100%;padding:10px 14px;border:1.5px solid #e8e8e8;border-radius:8px;
-               font-size:14px;margin-bottom:16px;outline:none;font-family:'Segoe UI',sans-serif}}
-        input:focus{{border-color:#5C3D8F;box-shadow:0 0 0 3px rgba(92,61,143,0.1)}}
-        #payment-element{{margin-bottom:16px}}
-        #error{{color:#ef4444;font-size:13px;margin-bottom:12px;min-height:18px}}
-        #btn{{width:100%;padding:14px;background:linear-gradient(135deg,#667eea,#764ba2);
-              color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;
-              cursor:pointer;font-family:'Segoe UI',sans-serif;margin-top:4px}}
-        #btn:disabled{{opacity:0.6;cursor:not-allowed}}
-        #loading{{display:none;text-align:center;padding:32px;color:#888;font-size:14px}}
+        *, *::before, *::after {{ margin:0; padding:0; box-sizing:border-box; }}
+        :root {{
+            --bg:     #FAFAF7;
+            --card:   #FFFFFF;
+            --dark:   #0D0D0D;
+            --purple: #5B5BF6;
+            --purp-h: #4747e0;
+            --gray:   #6B7280;
+            --border: #E5E7EB;
+            --r:      14px;
+        }}
+        body {{
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            color: var(--dark);
+        }}
+
+        /* ── Header bar ── */
+        .pay-header {{
+            width: 100%; max-width: 460px;
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px;
+        }}
+        .pay-logo {{
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 20px; font-weight: 700; color: var(--dark);
+            text-decoration: none; letter-spacing: -.03em;
+        }}
+        .pay-back {{
+            font-size: 13px; color: var(--gray); text-decoration: none;
+            display: flex; align-items: center; gap: 4px;
+            transition: color .15s;
+        }}
+        .pay-back:hover {{ color: var(--dark); }}
+
+        /* ── Card ── */
+        .pay-card {{
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 36px 32px;
+            width: 100%; max-width: 460px;
+            box-shadow: 0 4px 32px rgba(0,0,0,.06);
+        }}
+
+        /* ── Plan summary ── */
+        .plan-row {{
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 16px 18px; margin-bottom: 28px;
+        }}
+        .plan-name {{
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 15px; font-weight: 600; color: var(--dark);
+        }}
+        .plan-sub {{
+            font-size: 12px; color: var(--gray); margin-top: 2px;
+        }}
+        .plan-price {{
+            text-align: right;
+        }}
+        .plan-price-val {{
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 26px; font-weight: 700; color: var(--purple);
+            letter-spacing: -.03em;
+        }}
+        .plan-price-note {{
+            font-size: 11px; color: var(--gray); margin-top: 1px;
+        }}
+
+        /* ── Section label ── */
+        .section-label {{
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .08em; color: var(--gray); margin-bottom: 12px;
+        }}
+
+        /* ── Inputs ── */
+        .field {{ margin-bottom: 14px; }}
+        .field label {{
+            display: block; font-size: 13px; font-weight: 600;
+            color: var(--dark); margin-bottom: 6px;
+        }}
+        .field input {{
+            width: 100%; padding: 11px 14px;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            font-size: 14px; font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--dark); background: #fff; outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }}
+        .field input:focus {{
+            border-color: var(--purple);
+            box-shadow: 0 0 0 3px rgba(91,91,246,.12);
+        }}
+        .field input::placeholder {{ color: #9CA3AF; }}
+
+        /* ── Stripe element wrapper ── */
+        .stripe-wrap {{
+            border: 1.5px solid var(--border); border-radius: 10px;
+            padding: 13px 14px; background: #fff; margin-bottom: 20px;
+            transition: border-color .2s, box-shadow .2s;
+        }}
+        .stripe-wrap.focused {{
+            border-color: var(--purple);
+            box-shadow: 0 0 0 3px rgba(91,91,246,.12);
+        }}
+
+        /* ── Divider ── */
+        .divider {{ height: 1px; background: var(--border); margin: 22px 0; }}
+
+        /* ── Pay button ── */
+        #btn {{
+            width: 100%; padding: 15px;
+            background: var(--purple); color: #fff;
+            border: none; border-radius: 12px;
+            font-size: 15px; font-weight: 700;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            cursor: pointer; transition: background .2s, transform .15s;
+            margin-top: 4px;
+        }}
+        #btn:hover:not(:disabled) {{ background: var(--purp-h); transform: translateY(-1px); }}
+        #btn:disabled {{ opacity: .55; cursor: not-allowed; transform: none; }}
+
+        /* ── Trust badges ── */
+        .trust {{
+            display: flex; align-items: center; justify-content: center;
+            gap: 18px; margin-top: 20px; flex-wrap: wrap;
+        }}
+        .trust-item {{
+            display: flex; align-items: center; gap: 5px;
+            font-size: 12px; color: var(--gray);
+        }}
+
+        /* ── Error / loading ── */
+        #error {{
+            color: #DC2626; font-size: 13px; min-height: 18px;
+            margin-bottom: 10px; line-height: 1.4;
+        }}
+        #loading {{
+            text-align: center; padding: 40px 0;
+            font-size: 14px; color: var(--gray);
+        }}
+        .spinner {{
+            display: inline-block; width: 20px; height: 20px;
+            border: 2px solid var(--border); border-top-color: var(--purple);
+            border-radius: 50%; animation: spin .7s linear infinite;
+            margin-right: 8px; vertical-align: middle;
+        }}
+        @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+
+        @media (max-width: 500px) {{
+            .pay-card {{ padding: 28px 20px; }}
+        }}
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="badge">🔒 Pago seguro con Stripe</div>
-        <h1>Drivft LLC</h1>
-        <p class="sub">{p['nombre']}</p>
-        <div class="precio">
-            <div class="precio-val">${p['setup']//100:,}</div>
-            <div class="precio-label">{precio_label}</div>
+
+    <div class="pay-header">
+        <a href="/" class="pay-logo">Drivft</a>
+        <a href="/#precios" class="pay-back">← Cambiar plan</a>
+    </div>
+
+    <div class="pay-card">
+
+        <!-- Plan summary -->
+        <div class="plan-row">
+            <div>
+                <div class="plan-name">{plan_label_es}</div>
+                <div class="plan-sub">{precio_label}</div>
+            </div>
+            <div class="plan-price">
+                <div class="plan-price-val">${p['setup']//100:,}</div>
+                <div class="plan-price-note">USD · pago único</div>
+            </div>
         </div>
 
-        <div id="loading">Cargando opciones de pago...</div>
+        <!-- Loading state -->
+        <div id="loading">
+            <span class="spinner"></span>Cargando opciones de pago…
+        </div>
 
+        <!-- Payment form -->
         <form id="payment-form" style="display:none">
-            <label>Nombre completo</label>
-            <input type="text" id="nombre" placeholder="Juan Garcia" required>
-            <label>Email</label>
-            <input type="email" id="email" placeholder="tu@email.com" required>
 
-            <!-- Payment Element: muestra Apple Pay, Google Pay y tarjeta automaticamente -->
-            <div id="payment-element"></div>
+            <p class="section-label">Tu información</p>
+
+            <div class="field">
+                <label for="nombre">Nombre completo</label>
+                <input type="text" id="nombre" placeholder="Juan García" required>
+            </div>
+            <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="tu@email.com" required>
+            </div>
+
+            <div class="divider"></div>
+            <p class="section-label">Información de pago</p>
+
+            <div class="stripe-wrap" id="stripe-wrap">
+                <div id="payment-element"></div>
+            </div>
 
             <div id="error"></div>
-            <button id="btn">Pagar ${p['setup']//100:,} ahora</button>
+
+            <button id="btn">Pagar ${p['setup']//100:,} ahora 🔒</button>
+
+            <div class="trust">
+                <span class="trust-item">🔒 Pago seguro con Stripe</span>
+                <span class="trust-item">🛡️ Datos encriptados</span>
+                <span class="trust-item">✅ Sin contratos</span>
+            </div>
         </form>
     </div>
 
@@ -1211,9 +1388,8 @@ def pagar():
         const PK            = '{os.environ.get("STRIPE_PUBLIC_KEY", "")}';
 
         if (!CLIENT_SECRET || !PK) {{
-            document.getElementById('loading').textContent =
-                'Error de configuracion. Contacta a contact@getdrivftllc.com';
-            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').innerHTML =
+                'Error de configuración. Contacta a <a href="mailto:contact@getdrivftllc.com">contact@getdrivftllc.com</a>';
             return;
         }}
 
@@ -1222,23 +1398,30 @@ def pagar():
         const appearance = {{
             theme: 'stripe',
             variables: {{
-                colorPrimary:       '#5C3D8F',
-                colorBackground:    '#ffffff',
-                colorText:          '#333333',
-                borderRadius:       '8px',
-                fontFamily:         "'Segoe UI', sans-serif",
+                colorPrimary:    '#5B5BF6',
+                colorBackground: '#ffffff',
+                colorText:       '#0D0D0D',
+                borderRadius:    '8px',
+                fontFamily:      "'Plus Jakarta Sans', sans-serif",
+                spacingUnit:     '4px',
+            }},
+            rules: {{
+                '.Input': {{ border: 'none', boxShadow: 'none', padding: '0' }},
             }},
         }};
 
         const elements = stripe.elements({{ clientSecret: CLIENT_SECRET, appearance }});
 
-        // Payment Element: muestra Apple Pay / Google Pay / tarjeta segun dispositivo
         const paymentEl = elements.create('payment', {{
             fields: {{ billingDetails: {{ name: 'never', email: 'never' }} }},
             wallets: {{ applePay: 'auto', googlePay: 'auto' }},
         }});
 
         paymentEl.mount('#payment-element');
+
+        paymentEl.on('focus',  () => document.getElementById('stripe-wrap').classList.add('focused'));
+        paymentEl.on('blur',   () => document.getElementById('stripe-wrap').classList.remove('focused'));
+
         paymentEl.on('ready', () => {{
             document.getElementById('loading').style.display = 'none';
             document.getElementById('payment-form').style.display = 'block';
@@ -1251,12 +1434,12 @@ def pagar():
             const email  = document.getElementById('email').value.trim();
 
             if (!nombre || !email) {{
-                document.getElementById('error').textContent = 'Completa nombre y email.';
+                document.getElementById('error').textContent = 'Por favor completa nombre y email.';
                 return;
             }}
 
             btn.disabled    = true;
-            btn.textContent = 'Procesando...';
+            btn.textContent = 'Procesando…';
             document.getElementById('error').textContent = '';
 
             const returnUrl = window.location.origin
@@ -1274,7 +1457,6 @@ def pagar():
                 }},
             }});
 
-            // Solo llega aqui si hay error inmediato (ej. tarjeta invalida)
             if (error) {{
                 document.getElementById('error').textContent = error.message;
                 btn.disabled    = false;
