@@ -4,614 +4,1499 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{NEGOCIO_NOMBRE}} — Reservaciones</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
+
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ── Reset ── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    /* ── Design tokens ── */
+    :root {
+      --bg:          #FAFAF7;
+      --dark:        #0D0D0D;
+      --purple:      #5B5BF6;
+      --purple-h:    #4a4ae0;
+      --purple-dim:  rgba(91,91,246,.12);
+      --gray:        #6B7280;
+      --border:      #E5E7EB;
+      --card:        #FFFFFF;
+      --r:           16px;
+      --r-lg:        24px;
+      /* injected business colors */
+      --cp:          {{COLOR_PRIMARIO}};
+      --cs:          {{COLOR_SECUNDARIO}};
+    }
 
     body {
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(145deg, {{COLOR_FONDO_INICIO}} 0%, {{COLOR_FONDO_FIN}} 100%);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 32px 20px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--dark);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+    h1, h2, h3, .logo-text, .step-num { font-family: 'Space Grotesk', sans-serif; }
+
+    /* ── Bilingual toggle ── */
+    [data-lang]           { display: none !important; }
+    .lang-es [data-lang="es"] { display: revert !important; }
+    .lang-en [data-lang="en"] { display: revert !important; }
+
+    /* ── Scroll animations ── */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity .6s cubic-bezier(.22,1,.36,1),
+                  transform .6s cubic-bezier(.22,1,.36,1);
+    }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+    .d1 { transition-delay: .08s; }
+    .d2 { transition-delay: .16s; }
+    .d3 { transition-delay: .24s; }
+    .d4 { transition-delay: .32s; }
+    .d5 { transition-delay: .40s; }
+
+    /* ══════════════════════════════════════════════
+       NAV
+    ══════════════════════════════════════════════ */
+    #nav {
+      position: sticky; top: 0; z-index: 100;
+      padding: 16px 48px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: rgba(250,250,247,.88);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid transparent;
+      transition: padding .3s, border-color .3s, box-shadow .3s;
+    }
+    #nav.scrolled {
+      padding: 10px 48px;
+      border-color: var(--border);
+      box-shadow: 0 2px 20px rgba(0,0,0,.06);
     }
 
-    .brand {
-      text-align: center;
-      margin-bottom: 28px;
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo-mark {
+      width: 36px; height: 36px; background: var(--dark);
+      border-radius: 8px; display: grid; place-items: center; position: relative;
     }
-    .brand-icon {
-      font-size: 48px;
-      line-height: 1;
-      margin-bottom: 10px;
-      display: block;
-      animation: float 3s ease-in-out infinite;
+    .nav-logo-mark::after {
+      content: ''; position: absolute;
+      width: 14px; height: 14px;
+      background: var(--purple); transform: rotate(45deg); border-radius: 3px;
     }
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50%       { transform: translateY(-6px); }
+    .logo-text { font-size: 18px; font-weight: 700; color: var(--dark); letter-spacing: -.02em; }
+
+    .nav-mid { display: flex; align-items: center; gap: 6px; }
+    .lang-btn {
+      background: none; border: 1.5px solid var(--border); border-radius: 20px;
+      padding: 5px 14px; font-size: 13px; font-weight: 600;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer; transition: all .2s; color: var(--gray);
     }
-    .brand h1 {
-      font-size: 28px;
-      font-weight: 700;
-      color: {{COLOR_PRIMARIO}};
-      letter-spacing: -0.01em;
+    .lang-btn.active { background: var(--dark); border-color: var(--dark); color: #fff; }
+    .lang-btn:not(.active):hover { border-color: var(--dark); color: var(--dark); }
+
+    .nav-cta {
+      background: var(--purple); color: #fff; border: none; border-radius: 20px;
+      padding: 9px 20px; font-size: 13.5px; font-weight: 600;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer; text-decoration: none; display: inline-block;
+      transition: background .2s, transform .15s; white-space: nowrap;
     }
-    .brand p {
-      font-size: 13px;
-      color: #9A7D5A;
-      margin-top: 5px;
+    .nav-cta:hover { background: var(--purple-h); transform: translateY(-1px); }
+
+    /* ══════════════════════════════════════════════
+       HERO
+    ══════════════════════════════════════════════ */
+    #hero {
+      max-width: 1200px; margin: 0 auto;
+      padding: 84px 48px 100px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
     }
 
-    .card {
-      background: white;
-      border-radius: 20px;
-      padding: 2.2rem 2rem;
-      width: 100%;
-      max-width: 480px;
-      box-shadow: 0 20px 60px rgba(139, 38, 53, 0.12);
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--purple-dim); color: var(--purple);
+      font-size: 12.5px; font-weight: 600; padding: 5px 14px;
+      border-radius: 20px; margin-bottom: 22px; letter-spacing: .02em;
+    }
+    .eyebrow-dot {
+      width: 6px; height: 6px; background: var(--purple);
+      border-radius: 50%; animation: blink 2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.6)} }
+
+    .hero-h1 {
+      font-size: clamp(34px, 4.2vw, 54px);
+      font-weight: 700; line-height: 1.08;
+      letter-spacing: -.03em; margin-bottom: 22px;
+    }
+    .accent { color: var(--purple); }
+
+    .hero-sub {
+      font-size: 16px; color: var(--gray);
+      line-height: 1.72; margin-bottom: 32px; max-width: 480px;
     }
 
-    .wp-box {
-      background: linear-gradient(135deg, #FFF8EE, #FFF0D8);
-      border: 1.5px solid #F0D5A0;
-      border-radius: 12px;
-      padding: 13px 16px;
-      margin-bottom: 22px;
-      font-size: 13px;
-      color: #7A5018;
-      line-height: 1.65;
+    .hero-btns { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+
+    .btn-primary {
+      background: var(--purple); color: #fff; border: none; border-radius: 12px;
+      padding: 14px 28px; font-size: 15px; font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer; text-decoration: none; display: inline-block;
+      transition: background .2s, transform .15s, box-shadow .2s;
     }
-    .wp-box strong {
-      display: block;
-      font-size: 13.5px;
-      margin-bottom: 4px;
-      color: #5A3608;
+    .btn-primary:hover { background: var(--purple-h); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(91,91,246,.35); }
+
+    .btn-ghost {
+      background: transparent; color: var(--dark); border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 13px 24px; font-size: 15px; font-weight: 600;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer; text-decoration: none; display: inline-block;
+      transition: border-color .2s, transform .15s;
     }
-    .wp-box code {
-      background: rgba(0,0,0,0.06);
-      padding: 2px 6px;
-      border-radius: 5px;
-      font-size: 11.5px;
+    .btn-ghost:hover { border-color: var(--dark); transform: translateY(-1px); }
+
+    .hero-note { font-size: 12.5px; color: var(--gray); }
+
+    .hero-stats { display: flex; gap: 28px; margin-top: 36px; flex-wrap: wrap; }
+    .stat { display: flex; flex-direction: column; gap: 3px; }
+    .stat-val { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; }
+    .stat-lbl { font-size: 12px; color: var(--gray); }
+    .stat-div { width: 1px; background: var(--border); align-self: stretch; }
+
+    /* phone mockup */
+    .hero-visual { display: flex; justify-content: center; align-items: center; }
+    .phone-wrap  { position: relative; display: inline-block; }
+    .phone {
+      width: 252px; background: var(--dark); border-radius: 40px;
+      padding: 14px 10px;
+      box-shadow: 0 32px 80px rgba(0,0,0,.28), 0 0 0 2px rgba(255,255,255,.08);
+    }
+    .phone-notch {
+      width: 80px; height: 22px; background: var(--dark);
+      border-radius: 0 0 14px 14px; margin: 0 auto 10px;
+      border: 2px solid rgba(255,255,255,.07); border-top: none;
+    }
+    .phone-screen {
+      background: #F8F8F8; border-radius: 28px; overflow: hidden;
+      min-height: 370px; display: flex; flex-direction: column;
+    }
+    .ph-header {
+      background: var(--purple); padding: 11px 13px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ph-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(255,255,255,.2); display: grid; place-items: center; font-size: 13px;
+    }
+    .ph-name   { color: #fff; font-size: 11.5px; font-weight: 700; }
+    .ph-status { font-size: 10px; color: rgba(255,255,255,.75); }
+    .ph-msgs   { flex: 1; padding: 11px 9px; display: flex; flex-direction: column; gap: 7px; }
+    .pm {
+      max-width: 82%; padding: 7px 10px; border-radius: 12px;
+      font-size: 10.5px; line-height: 1.45;
+    }
+    .pm.bot  { background: #fff; color: #222; border-bottom-left-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .pm.user { background: var(--purple); color: #fff; border-bottom-right-radius: 3px; align-self: flex-end; }
+    .ph-bar  { padding: 8px 9px; background: #fff; border-top: 1px solid #eee; display: flex; gap: 6px; }
+    .ph-bar-fake { flex: 1; height: 28px; background: #f0f0f0; border-radius: 14px; }
+    .ph-bar-send {
+      width: 28px; height: 28px; background: var(--purple);
+      border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 11px;
     }
 
-    .form-section {
-      font-size: 10.5px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: {{COLOR_SECUNDARIO}};
-      margin-bottom: 10px;
-      margin-top: 20px;
+    .confirm-float {
+      position: absolute; bottom: -18px; right: -36px;
+      background: #fff; border-radius: 16px; padding: 13px 17px;
+      box-shadow: 0 16px 48px rgba(0,0,0,.16); min-width: 176px;
+      animation: float 4s ease-in-out infinite;
     }
-    .form-section:first-of-type { margin-top: 0; }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+    .cf-icon {
+      width: 30px; height: 30px; background: #DCFCE7; border-radius: 50%;
+      display: grid; place-items: center; font-size: 13px; margin-bottom: 6px;
+    }
+    .cf-title { font-size: 11.5px; font-weight: 700; }
+    .cf-sub   { font-size: 10px; color: var(--gray); margin-top: 1px; }
 
-    label {
-      font-size: 13px;
-      font-weight: 500;
-      color: #3A1A0A;
-      display: block;
-      margin-bottom: 5px;
+    /* ══════════════════════════════════════════════
+       LOGO STRIP
+    ══════════════════════════════════════════════ */
+    #logos {
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      padding: 28px 48px;
+    }
+    .logos-inner { max-width: 1200px; margin: 0 auto; }
+    .logos-lbl {
+      text-align: center; font-size: 11.5px; font-weight: 600; color: var(--gray);
+      letter-spacing: .07em; text-transform: uppercase; margin-bottom: 20px;
+    }
+    .logos-row {
+      display: flex; justify-content: center; align-items: center;
+      gap: 44px; flex-wrap: wrap;
+    }
+    .logo-chip {
+      font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 600;
+      color: #9CA3AF; letter-spacing: -.01em; transition: color .2s;
+    }
+    .logo-chip:hover { color: var(--dark); }
+
+    /* ══════════════════════════════════════════════
+       SHARED SECTION WRAPPER
+    ══════════════════════════════════════════════ */
+    .sw { max-width: 1200px; margin: 0 auto; padding: 88px 48px; }
+    .sec-tag {
+      font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--purple); margin-bottom: 12px;
+    }
+    .sec-h2 {
+      font-size: clamp(28px, 3vw, 40px); font-weight: 700;
+      letter-spacing: -.025em; line-height: 1.15; margin-bottom: 14px;
+    }
+    .sec-sub {
+      font-size: 16px; color: var(--gray); max-width: 520px;
+      line-height: 1.7; margin-bottom: 52px;
     }
 
-    input, select {
-      width: 100%;
-      padding: 11px 14px;
-      border: 1.5px solid #E8DACC;
-      border-radius: 10px;
-      font-size: 14px;
-      font-family: 'Inter', sans-serif;
+    /* ══════════════════════════════════════════════
+       SERVICES GRID
+    ══════════════════════════════════════════════ */
+    .srv-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 20px;
+    }
+    .srv-card {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--r-lg); padding: 28px;
+      transition: transform .25s, box-shadow .25s, border-color .25s; cursor: default;
+    }
+    .srv-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,.09); border-color: rgba(91,91,246,.3); }
+    .srv-card.dark  { background: var(--dark); border-color: var(--dark); color: #fff; }
+    .srv-card.dark:hover { box-shadow: 0 16px 48px rgba(0,0,0,.3); }
+    .srv-ico {
+      width: 44px; height: 44px; background: var(--purple-dim);
+      border-radius: 12px; display: grid; place-items: center;
+      font-size: 20px; margin-bottom: 18px;
+    }
+    .srv-card.dark .srv-ico { background: rgba(91,91,246,.2); }
+    .srv-name { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+    .srv-card.dark .srv-name { color: #fff; }
+    .srv-desc { font-size: 13.5px; color: var(--gray); line-height: 1.62; }
+    .srv-card.dark .srv-desc { color: rgba(255,255,255,.6); }
+    .srv-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 22px; background: var(--purple); color: #fff;
+      border-radius: 10px; padding: 10px 20px; font-size: 13.5px; font-weight: 600;
+      text-decoration: none; transition: background .2s, transform .15s;
+    }
+    .srv-link:hover { background: var(--purple-h); transform: translateY(-1px); }
+
+    /* ══════════════════════════════════════════════
+       HOW IT WORKS  (dark section)
+    ══════════════════════════════════════════════ */
+    #how { background: var(--dark); }
+    #how .sec-h2  { color: #fff; }
+    #how .sec-sub { color: rgba(255,255,255,.5); max-width: 600px; }
+    #how .sec-tag { color: rgba(91,91,246,.9); }
+
+    .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px; }
+    .step {
+      padding: 28px; border: 1.5px solid rgba(255,255,255,.1);
+      border-radius: var(--r-lg);
+      transition: border-color .25s, transform .25s;
+    }
+    .step:hover { border-color: rgba(91,91,246,.5); transform: translateY(-4px); }
+    .step-num { font-size: 13px; font-weight: 700; color: var(--purple); margin-bottom: 16px; letter-spacing: .05em; }
+    .step-title { font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 600; color: #fff; margin-bottom: 10px; }
+    .step-desc  { font-size: 14px; color: rgba(255,255,255,.52); line-height: 1.65; }
+
+    /* ══════════════════════════════════════════════
+       PRICING
+    ══════════════════════════════════════════════ */
+    .price-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; align-items: start; }
+    .price-card {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--r-lg); padding: 32px 28px; position: relative;
+      transition: transform .25s, box-shadow .25s;
+    }
+    .price-card:hover { transform: translateY(-4px); box-shadow: 0 20px 56px rgba(0,0,0,.09); }
+    .price-card.pop  { background: var(--dark); border-color: var(--dark); color: #fff; }
+    .price-card.pop:hover { box-shadow: 0 20px 56px rgba(0,0,0,.28); }
+    .pop-badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--purple); color: #fff; font-size: 11px; font-weight: 700;
+      padding: 3px 14px; border-radius: 20px; letter-spacing: .05em; white-space: nowrap;
+    }
+    .price-plan {
+      font-size: 12.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--gray); margin-bottom: 12px;
+    }
+    .price-card.pop .price-plan { color: rgba(255,255,255,.5); }
+    .price-amt {
+      font-family: 'Space Grotesk', sans-serif; font-size: 40px; font-weight: 700;
+      letter-spacing: -.03em; line-height: 1; margin-bottom: 4px;
+    }
+    .price-card.pop .price-amt { color: #fff; }
+    .price-per { font-size: 13px; color: var(--gray); margin-bottom: 24px; }
+    .price-card.pop .price-per { color: rgba(255,255,255,.5); }
+    .price-div { height: 1px; background: var(--border); margin-bottom: 24px; }
+    .price-card.pop .price-div { background: rgba(255,255,255,.12); }
+    .price-feats { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .price-feats li { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; color: var(--gray); }
+    .price-card.pop .price-feats li { color: rgba(255,255,255,.72); }
+    .price-feats li::before { content: '✓'; color: var(--purple); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .price-btn {
+      width: 100%; padding: 13px; border: 1.5px solid var(--border);
+      border-radius: 12px; background: transparent; color: var(--dark);
+      font-size: 14px; font-weight: 600; font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer; transition: all .2s; text-align: center;
+    }
+    .price-btn:hover { border-color: var(--dark); }
+    .price-btn.filled { background: var(--purple); border-color: var(--purple); color: #fff; }
+    .price-btn.filled:hover { background: var(--purple-h); border-color: var(--purple-h); }
+
+    /* ══════════════════════════════════════════════
+       TESTIMONIALS
+    ══════════════════════════════════════════════ */
+    #testimonios { background: var(--card); }
+    .test-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+    .test-card {
+      background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: var(--r-lg); padding: 28px;
+      transition: transform .25s, box-shadow .25s;
+    }
+    .test-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,.08); }
+    .test-stars   { color: #F59E0B; font-size: 14px; margin-bottom: 14px; letter-spacing: 2px; }
+    .test-quote   { font-size: 15px; color: var(--dark); line-height: 1.67; margin-bottom: 20px; font-style: italic; }
+    .test-author  { display: flex; align-items: center; gap: 10px; }
+    .test-avatar  {
+      width: 40px; height: 40px; border-radius: 50%; background: var(--purple-dim);
+      display: grid; place-items: center; font-size: 16px; font-weight: 700;
+      color: var(--purple); font-family: 'Space Grotesk', sans-serif; flex-shrink: 0;
+    }
+    .test-name { font-size: 13.5px; font-weight: 700; }
+    .test-biz  { font-size: 12px; color: var(--gray); }
+
+    /* ══════════════════════════════════════════════
+       CTA BANNER
+    ══════════════════════════════════════════════ */
+    #cta-sec { padding: 0 48px 88px; }
+    .cta-inner {
+      max-width: 1200px; margin: 0 auto;
+      background: var(--purple); border-radius: var(--r-lg);
+      padding: 64px 56px;
+      display: flex; align-items: center; justify-content: space-between; gap: 32px;
+    }
+    .cta-txt h2 {
+      font-size: clamp(24px, 3vw, 36px); font-weight: 700; color: #fff;
+      letter-spacing: -.025em; margin-bottom: 10px;
+    }
+    .cta-txt p { font-size: 16px; color: rgba(255,255,255,.72); }
+    .btn-white {
+      background: #fff; color: var(--purple); border: none; border-radius: 12px;
+      padding: 14px 28px; font-size: 15px; font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer; text-decoration: none; display: inline-block;
+      white-space: nowrap; flex-shrink: 0;
+      transition: transform .15s, box-shadow .2s;
+    }
+    .btn-white:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+
+    /* ══════════════════════════════════════════════
+       BOOKING FORM
+    ══════════════════════════════════════════════ */
+    #reservar { background: var(--bg); }
+    #reservar .sec-h2, #reservar .sec-tag { text-align: center; }
+    #reservar .sec-sub { text-align: center; margin-left: auto; margin-right: auto; }
+
+    .bk-card {
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: var(--r-lg); padding: 40px;
+      max-width: 560px; margin: 0 auto;
+      box-shadow: 0 8px 40px rgba(0,0,0,.06);
+    }
+
+    .fsec {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--purple);
+      margin-bottom: 12px; margin-top: 24px;
+    }
+    .fsec:first-child { margin-top: 0; }
+
+    .flabel {
+      display: block; font-size: 13px; font-weight: 600;
+      color: var(--dark); margin-bottom: 6px;
+    }
+    .finput, .fselect {
+      width: 100%; padding: 12px 16px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 14px; font-family: 'Plus Jakarta Sans', sans-serif;
+      outline: none; transition: border-color .2s, box-shadow .2s;
+      background: var(--bg); color: var(--dark);
+      height: 48px; -webkit-appearance: none; appearance: none; box-sizing: border-box;
       margin-bottom: 14px;
-      outline: none;
-      transition: border 0.2s, box-shadow 0.2s;
-      background: #FDFAF6;
-      color: #3A1A0A;
-      height: 46px;
-      -webkit-appearance: none;
-      appearance: none;
-      box-sizing: border-box;
     }
-    select {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235C3D8F' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 14px center;
-      padding-right: 38px;
+    .fselect {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235B5BF6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 16px center; padding-right: 40px;
     }
-    input::placeholder { color: #C0A888; }
-    input:focus, select:focus {
-      border-color: {{COLOR_PRIMARIO}};
-      background: white;
-      box-shadow: 0 0 0 3px rgba(139, 38, 53, 0.09);
+    .finput::placeholder { color: #9CA3AF; }
+    .finput:focus, .fselect:focus {
+      border-color: var(--purple); background: #fff;
+      box-shadow: 0 0 0 3px rgba(91,91,246,.1);
     }
+    .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    /* SMS opt-in */
+    .sms-wrap {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: #F5F3FF; border: 1.5px solid #DDD6FE;
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
+    }
+    .sms-wrap input[type="checkbox"] {
+      width: 17px; height: 17px; margin-top: 2px; flex-shrink: 0;
+      accent-color: var(--purple); cursor: pointer;
+      position: relative; z-index: 1; pointer-events: auto;
+    }
+    .sms-wrap label {
+      font-size: 11.5px; font-weight: 400; color: #4C1D95;
+      line-height: 1.55; cursor: pointer; margin-bottom: 0;
+    }
+    .sms-wrap label a { color: var(--purple); text-decoration: underline; }
 
-    .sms-optin-wrap {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      background: #F8F4FF;
-      border: 1.5px solid #D8CCEE;
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 14px;
+    /* Deposit */
+    .dep-box {
+      background: #F5F3FF; border: 1.5px solid #DDD6FE;
+      border-radius: 12px; padding: 16px 18px; margin-bottom: 14px;
     }
-    .sms-optin-wrap input[type="checkbox"] {
-      width: 17px; height: 17px;
-      margin-top: 2px; flex-shrink: 0;
-      accent-color: {{COLOR_PRIMARIO}};
-      cursor: pointer;
+    .dep-toggle {
+      display: flex; align-items: flex-start; gap: 10px;
+      cursor: pointer; font-size: 13.5px; color: var(--dark);
     }
-    .sms-optin-wrap label {
-      font-size: 11.5px;
-      font-weight: 400;
-      color: #5A4A70;
-      line-height: 1.55;
-      cursor: pointer;
-      margin-bottom: 0;
+    .dep-toggle input[type="checkbox"] {
+      width: 17px; height: 17px; margin: 0; flex-shrink: 0; accent-color: var(--purple);
     }
-    .sms-optin-wrap label a {
-      color: {{COLOR_PRIMARIO}};
-      text-decoration: underline;
-    }
-
-    button[type="submit"] {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, {{COLOR_PRIMARIO}}, {{COLOR_SECUNDARIO}});
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 700;
-      font-family: 'Inter', sans-serif;
-      cursor: pointer;
-      margin-top: 6px;
-      letter-spacing: 0.01em;
-      transition: opacity 0.2s, transform 0.15s;
-    }
-    button[type="submit"]:hover   { opacity: 0.91; transform: translateY(-1px); }
-    button[type="submit"]:active  { transform: translateY(0); }
-    button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    .success {
-      display: none;
-      text-align: center;
-      padding: 28px 16px;
-    }
-    .success .check {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, {{COLOR_PRIMARIO}}, {{COLOR_SECUNDARIO}});
-      color: white;
-      border-radius: 50%;
-      width: 72px;
-      height: 72px;
-      font-size: 32px;
-      margin-bottom: 18px;
-    }
-    .success h2 { font-size: 22px; font-weight: 700; color: {{COLOR_PRIMARIO}}; margin-bottom: 10px; }
-    .success p  { font-size: 14px; color: #9A7D5A; line-height: 1.6; }
-
-    .footer {
-      margin-top: 22px;
-      text-align: center;
-      font-size: 11px;
-      color: #C0A888;
-    }
-    .footer a { color: {{COLOR_SECUNDARIO}}; text-decoration: none; }
-
-    /* ── Deposit box ── */
-    .deposit-box {
-      background: linear-gradient(135deg, #F4F0FF, #EDE5FF);
-      border: 1.5px solid rgba(92,61,143,0.22);
-      border-radius: 12px;
-      padding: 15px 18px;
-      margin-top: 4px;
-      margin-bottom: 4px;
-    }
-    .deposit-toggle-label {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      cursor: pointer;
-      font-size: 13.5px;
-      font-weight: 400;
-      color: #3A1A0A;
-      text-transform: none;
-      letter-spacing: 0;
-    }
-    .deposit-toggle-label input[type="checkbox"] {
-      width: 17px; height: 17px;
-      margin: 0; flex-shrink: 0;
-      accent-color: {{COLOR_PRIMARIO}};
-    }
-    .deposit-badge {
-      display: inline-block;
-      background: {{COLOR_PRIMARIO}};
-      color: white;
-      font-size: 10.5px; font-weight: 700;
-      padding: 2px 9px; border-radius: 20px;
-      margin-left: 6px; vertical-align: middle;
+    .dep-badge {
+      display: inline-block; background: var(--purple); color: #fff;
+      font-size: 10.5px; font-weight: 700; padding: 2px 10px;
+      border-radius: 20px; margin-left: 6px; vertical-align: middle;
     }
     #card-element-wrap { margin-top: 14px; display: none; }
-    #card-element {
-      padding: 12px 15px;
-      border: 1.5px solid rgba(92,61,143,0.28);
-      border-radius: 10px; background: white;
+    #card-element { padding: 13px 16px; border: 1.5px solid #DDD6FE; border-radius: 10px; background: #fff; }
+    #card-error  { color: #DC2626; font-size: 12px; margin-top: 6px; min-height: 18px; }
+    .dep-note   { font-size: 11.5px; color: var(--purple); margin-top: 10px; line-height: 1.5; }
+
+    /* WA hint */
+    .wa-hint {
+      background: #FFFBEB; border: 1.5px solid #FDE68A;
+      border-radius: 12px; padding: 14px 18px; margin-bottom: 24px;
+      font-size: 13px; color: #92400E; line-height: 1.6;
     }
-    #card-error { color: #c0392b; font-size: 12px; margin-top: 6px; min-height: 18px; }
-    .deposit-note { font-size: 11.5px; color: {{COLOR_PRIMARIO}}; margin-top: 10px; line-height: 1.5; }
+    .wa-hint strong { display: block; font-size: 13.5px; margin-bottom: 4px; color: #78350F; }
 
-    @media (max-width: 420px) {
-      .card { padding: 1.6rem 1.3rem; }
-      .brand h1 { font-size: 22px; }
+    /* Submit */
+    .sub-btn {
+      width: 100%; padding: 15px; background: var(--purple); color: #fff;
+      border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif; cursor: pointer;
+      transition: background .2s, transform .15s, box-shadow .2s; margin-top: 4px;
     }
-  </style>
-</head>
-<body>
+    .sub-btn:hover { background: var(--purple-h); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(91,91,246,.3); }
+    .sub-btn:active { transform: translateY(0); }
+    .sub-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
 
-  <div class="brand">
-    <span class="brand-icon">{{NEGOCIO_EMOJI}}</span>
-    <h1>{{NEGOCIO_NOMBRE}}</h1>
-    <p>{{NEGOCIO_SLOGAN}}</p>
-  </div>
+    /* Success */
+    .success { display: none; text-align: center; padding: 32px 16px; }
+    .suc-check {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--purple); color: #fff; border-radius: 50%;
+      width: 72px; height: 72px; font-size: 32px; margin-bottom: 20px;
+    }
+    .success h2 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+    .success p  { font-size: 14px; color: var(--gray); line-height: 1.65; }
 
-  <div class="card">
+    /* ══════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════ */
+    footer {
+      background: var(--dark); color: rgba(255,255,255,.55);
+      padding: 52px 48px; text-align: center;
+    }
+    .ft-logo {
+      display: inline-flex; align-items: center; gap: 10px;
+      text-decoration: none; margin-bottom: 16px;
+    }
+    .ft-logo-mark {
+      width: 32px; height: 32px; background: #fff; border-radius: 7px;
+      display: grid; place-items: center; position: relative;
+    }
+    .ft-logo-mark::after {
+      content: ''; position: absolute; width: 12px; height: 12px;
+      background: var(--purple); transform: rotate(45deg); border-radius: 2px;
+    }
+    .ft-logo-text { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: #fff; }
+    .ft-loc  { font-size: 13px; margin-bottom: 8px; }
+    .ft-copy { font-size: 12px; }
+    .ft-links {
+      margin-top: 18px; display: flex; justify-content: center;
+      align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .ft-links a {
+      color: rgba(255,255,255,.4); font-size: 12px; text-decoration: none; transition: color .2s;
+    }
+    .ft-links a:hover { color: #fff; }
+    .ft-dot { color: rgba(255,255,255,.2); font-size: 12px; }
 
-    <div class="wp-box">
-      <strong>📱 Reserva también por WhatsApp</strong>
-      Escríbenos al <strong>{{NEGOCIO_TELEFONO}}</strong> con el formato:<br>
-      <code>reservar / Tu nombre / 2026-05-20 / 10:00 AM / {{SERVICIO_EJEMPLO}}</code>
-    </div>
-
-    <form id="form">
-
-      <p class="form-section">Tus datos</p>
-
-      <label>Nombre completo</label>
-      <input type="text" id="nombre" placeholder="Ej: Juan García" required>
-
-      <label>Email</label>
-      <input type="email" id="email" placeholder="tu@email.com" required>
-
-      <label>Teléfono (solo números)</label>
-      <input type="tel" id="telefono" placeholder="3051234567">
-
-      <p class="form-section">{{SECCION_RESERVA}}</p>
-
-      <label>{{LABEL_SERVICIO}}</label>
-      <select id="servicio">
-        {{SERVICIOS_OPTIONS}}
-      </select>
-
-      <div class="row">
-        <div>
-          <label>Fecha</label>
-          <input type="date" id="fecha" required>
-        </div>
-        <div>
-          <label>Hora</label>
-          <select id="hora">
-            {{HORAS_OPTIONS}}
-          </select>
-        </div>
-      </div>
-
-      <div class="deposit-box">
-        <label class="deposit-toggle-label">
-          <input type="checkbox" id="pagar-deposito">
-          <span>
-            Asegurar cita con depósito
-            <span class="deposit-badge">${{DEPOSITO_MONTO}} · Reserva garantizada 🔒</span>
-          </span>
-        </label>
-        <div id="card-element-wrap">
-          <div id="card-element"></div>
-          <div id="card-error"></div>
-          <p class="deposit-note">🔒 Pago seguro con Stripe. El depósito se aplica al total del servicio.</p>
-        </div>
-      </div>
-
-      <div class="sms-optin-wrap">
-        <input type="checkbox" id="sms-optin" required>
-        <label for="sms-optin">
-          I agree to receive appointment confirmations and reminders via SMS from <strong>{{NEGOCIO_NOMBRE}}</strong>.
-          Msg &amp; Data rates may apply. Reply <strong>STOP</strong> to cancel, <strong>HELP</strong> for help.
-          <a href="/privacy-policy" target="_blank">Privacy Policy</a>
-        </label>
-      </div>
-
-      <button type="submit" id="btn">{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}</button>
-    </form>
-
-    <div class="success" id="success">
-      <div class="check">✓</div>
-      <h2>{{TEXTO_EXITO}}</h2>
-      <p>Revisa tu email para ver los detalles.<br>Si diste tu teléfono también recibirás un WhatsApp.</p>
-    </div>
-
-  </div>
-
-  <div class="footer">
-    {{NEGOCIO_DIRECCION}} · <a href="tel:{{NEGOCIO_TELEFONO}}">{{NEGOCIO_TELEFONO}}</a><br>
-    <span style="margin-top:6px;display:block">Powered by <a href="#">Drivft LLC</a></span>
-  </div>
-
-  <script>
-    document.getElementById('fecha').min = new Date().toISOString().split('T')[0];
-
-    // ── Stripe setup ──────────────────────────────────────
-    const stripe   = Stripe('{{STRIPE_PUBLIC_KEY}}');
-    const elements = stripe.elements();
-    const cardEl   = elements.create('card', {
-      style: {
-        base: {
-          fontSize: '14px',
-          color: '#3A1A0A',
-          fontFamily: 'Inter, sans-serif',
-          '::placeholder': { color: '#C0A888' }
-        }
-      }
-    });
-    cardEl.mount('#card-element');
-
-    const chk = document.getElementById('pagar-deposito');
-    chk.addEventListener('change', () => {
-      document.getElementById('card-element-wrap').style.display = chk.checked ? 'block' : 'none';
-      document.getElementById('card-error').textContent = '';
-    });
-
-    // ── Form submit ───────────────────────────────────────
-    document.getElementById('form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('btn');
-      btn.disabled = true;
-
-      const datos = {
-        nombre:   document.getElementById('nombre').value,
-        email:    document.getElementById('email').value,
-        telefono: document.getElementById('telefono').value,
-        servicio: document.getElementById('servicio').value,
-        fecha:    document.getElementById('fecha').value,
-        hora:     document.getElementById('hora').value,
-        deposito: chk.checked
-      };
-
-      if (chk.checked) {
-        btn.textContent = 'Procesando depósito…';
-        try {
-          const piRes  = await fetch('/crear-deposito', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre: datos.nombre, email: datos.email, servicio: datos.servicio })
-          });
-          const piData = await piRes.json();
-          if (piData.error) throw new Error(piData.error);
-
-          const { error: stripeErr } = await stripe.confirmCardPayment(piData.client_secret, {
-            payment_method: { card: cardEl, billing_details: { name: datos.nombre, email: datos.email } }
-          });
-          if (stripeErr) {
-            document.getElementById('card-error').textContent = stripeErr.message;
-            btn.disabled = false;
-            btn.textContent = '{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}';
-            return;
-          }
-          datos.deposito_pagado = true;
-        } catch (err) {
-          document.getElementById('card-error').textContent = 'Error de pago: ' + err.message;
-          btn.disabled = false;
-          btn.textContent = '{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}';
-          return;
-        }
-      }
-
-      btn.textContent = 'Confirmando reservación…';
-      try {
-        const res = await fetch('/reservar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(datos)
-        });
-        if (res.ok) {
-          document.getElementById('form').style.display = 'none';
-          document.getElementById('success').style.display = 'block';
-        } else {
-          alert('Hubo un error. Intenta de nuevo.');
-          btn.disabled = false;
-          btn.textContent = '{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}';
-        }
-      } catch (err) {
-        alert('No se pudo conectar. Asegúrate que el servidor está corriendo.');
-        btn.disabled = false;
-        btn.textContent = '{{BTN_RESERVAR}} {{NEGOCIO_EMOJI}}';
-      }
-    });
-  </script>
-
-  <!-- ══ CHAT BUBBLE ═══════════════════════════════════════ -->
-  <style>
+    /* ══════════════════════════════════════════════
+       CHATBOT
+    ══════════════════════════════════════════════ */
     #chat-bubble-btn {
       position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-      width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer;
-      background: linear-gradient(135deg, {{COLOR_PRIMARIO}}, {{COLOR_SECUNDARIO}});
-      color: white; font-size: 26px; box-shadow: 0 4px 20px rgba(0,0,0,0.22);
+      width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--cp); color: #fff; font-size: 24px;
+      box-shadow: 0 4px 20px rgba(91,91,246,.38);
       display: flex; align-items: center; justify-content: center;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform .2s, box-shadow .2s;
     }
-    #chat-bubble-btn:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(0,0,0,0.28); }
+    #chat-bubble-btn:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(91,91,246,.5); }
 
     #chat-window {
-      position: fixed; bottom: 92px; right: 24px; z-index: 9998;
-      width: 330px; max-height: 480px; border-radius: 18px; overflow: hidden;
-      box-shadow: 0 12px 48px rgba(0,0,0,0.2); display: none; flex-direction: column;
-      font-family: 'Inter', sans-serif; background: #f8f8f8;
+      position: fixed; bottom: 90px; right: 24px; z-index: 9998;
+      width: 330px; max-height: 480px; border-radius: 20px; overflow: hidden;
+      box-shadow: 0 12px 48px rgba(0,0,0,.2); display: none; flex-direction: column;
+      font-family: 'Plus Jakarta Sans', sans-serif; background: #f8f8f8;
     }
     #chat-window.open { display: flex; }
 
-    .chat-header {
-      background: linear-gradient(135deg, {{COLOR_PRIMARIO}}, {{COLOR_SECUNDARIO}});
-      color: white; padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+    .chat-hdr {
+      background: linear-gradient(135deg, var(--cp), var(--cs));
+      color: #fff; padding: 14px 16px; display: flex; align-items: center; gap: 10px;
     }
-    .chat-header-emoji { font-size: 24px; }
-    .chat-header-info { flex: 1; }
-    .chat-header-name { font-weight: 700; font-size: 14px; }
-    .chat-online { font-size: 11px; opacity: 0.85; display: flex; align-items: center; gap: 4px; }
+    .chat-hdr-ico  { font-size: 22px; }
+    .chat-hdr-info { flex: 1; }
+    .chat-hdr-name { font-weight: 700; font-size: 14px; }
+    .chat-online {
+      font-size: 11px; opacity: .85; display: flex; align-items: center; gap: 4px;
+    }
     .chat-online::before {
       content: ''; display: inline-block; width: 7px; height: 7px;
-      border-radius: 50%; background: #6bff8a;
+      border-radius: 50%; background: #4ADE80;
     }
     .chat-close {
-      background: none; border: none; color: white; font-size: 20px; cursor: pointer;
-      padding: 2px 6px; border-radius: 6px; opacity: 0.85; transition: opacity 0.15s;
+      background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;
+      padding: 2px 6px; border-radius: 6px; opacity: .8; transition: opacity .15s;
     }
     .chat-close:hover { opacity: 1; }
 
-    .chat-messages {
-      flex: 1; overflow-y: auto; padding: 14px 12px; display: flex;
-      flex-direction: column; gap: 10px; max-height: 310px;
+    .chat-msgs {
+      flex: 1; overflow-y: auto; padding: 14px 12px;
+      display: flex; flex-direction: column; gap: 10px; max-height: 310px;
     }
     .chat-msg {
       max-width: 82%; padding: 9px 13px; border-radius: 14px;
       font-size: 13px; line-height: 1.5; word-wrap: break-word;
     }
     .chat-msg.bot {
-      background: white; color: #222; border-bottom-left-radius: 4px;
-      align-self: flex-start; box-shadow: 0 1px 4px rgba(0,0,0,0.09);
+      background: #fff; color: #1a1a1a; border-bottom-left-radius: 4px;
+      align-self: flex-start; box-shadow: 0 1px 4px rgba(0,0,0,.08);
     }
     .chat-msg.user {
-      background: linear-gradient(135deg, {{COLOR_PRIMARIO}}, {{COLOR_SECUNDARIO}});
-      color: white; border-bottom-right-radius: 4px; align-self: flex-end;
+      background: linear-gradient(135deg, var(--cp), var(--cs));
+      color: #fff; border-bottom-right-radius: 4px; align-self: flex-end;
     }
-
     .chat-typing {
-      display: none; align-self: flex-start; background: white;
+      display: none; align-self: flex-start; background: #fff;
       border-radius: 14px; border-bottom-left-radius: 4px;
-      padding: 10px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.09);
+      padding: 10px 14px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
     }
     .chat-typing span {
       display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-      background: {{COLOR_PRIMARIO}}; margin: 0 2px;
-      animation: chatDot 1.2s infinite;
+      background: var(--cp); margin: 0 2px; animation: chatDot 1.2s infinite;
     }
-    .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
-    .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+    .chat-typing span:nth-child(2) { animation-delay: .2s; }
+    .chat-typing span:nth-child(3) { animation-delay: .4s; }
     @keyframes chatDot {
-      0%,80%,100% { transform: translateY(0); opacity: 0.4; }
-      40%         { transform: translateY(-5px); opacity: 1; }
+      0%,80%,100% { transform: translateY(0); opacity: .4; }
+      40%          { transform: translateY(-5px); opacity: 1; }
     }
-
-    .chat-input-row {
+    .chat-inp-row {
       display: flex; gap: 8px; padding: 10px 12px;
-      background: white; border-top: 1px solid #eee;
+      background: #fff; border-top: 1px solid #eee;
     }
-    .chat-input-row input {
+    .chat-inp-row input {
       flex: 1; border: 1.5px solid #e0e0e0; border-radius: 20px;
       padding: 8px 14px; font-size: 13px; outline: none;
-      font-family: 'Inter', sans-serif; transition: border 0.2s;
+      font-family: 'Plus Jakarta Sans', sans-serif; transition: border .2s;
     }
-    .chat-input-row input:focus { border-color: {{COLOR_PRIMARIO}}; }
+    .chat-inp-row input:focus { border-color: var(--cp); }
     .chat-send {
       width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
-      background: linear-gradient(135deg, {{COLOR_PRIMARIO}}, {{COLOR_SECUNDARIO}});
-      color: white; font-size: 16px; display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; transition: opacity 0.2s;
+      background: linear-gradient(135deg, var(--cp), var(--cs));
+      color: #fff; font-size: 15px; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: opacity .2s, transform .2s;
     }
-    .chat-send:hover { opacity: 0.85; }
+    .chat-send:hover { opacity: .88; transform: scale(1.06); }
+
+    /* ══════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════ */
+    @media (max-width: 960px) {
+      #hero   { grid-template-columns: 1fr; gap: 48px; padding: 60px 24px; }
+      .hero-visual { order: -1; }
+      .srv-grid   { grid-template-columns: 1fr 1fr; }
+      .steps      { grid-template-columns: 1fr; }
+      .price-grid { grid-template-columns: 1fr; }
+      .test-grid  { grid-template-columns: 1fr; }
+      .cta-inner  { flex-direction: column; text-align: center; padding: 48px 32px; }
+      #nav { padding: 14px 24px; }
+      #nav.scrolled { padding: 10px 24px; }
+      .sw  { padding: 64px 24px; }
+      #cta-sec { padding: 0 24px 64px; }
+      #logos { padding: 24px; }
+    }
+    @media (max-width: 600px) {
+      .srv-grid { grid-template-columns: 1fr; }
+      .frow     { grid-template-columns: 1fr; }
+      .nav-cta  { display: none; }
+      .hero-stats { gap: 16px; }
+      .logos-row  { gap: 20px; }
+      .bk-card { padding: 28px 20px; }
+    }
   </style>
+</head>
+<body class="lang-es">
 
-  <button id="chat-bubble-btn" aria-label="Abrir chat">💬</button>
+<!-- ════════════════════════════════════════════════
+     NAV
+════════════════════════════════════════════════ -->
+<nav id="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-mark"></div>
+    <span class="logo-text">Drivft</span>
+  </a>
 
-  <div id="chat-window">
-    <div class="chat-header">
-      <span class="chat-header-emoji">{{NEGOCIO_EMOJI}}</span>
-      <div class="chat-header-info">
-        <div class="chat-header-name">{{NEGOCIO_NOMBRE}}</div>
-        <div class="chat-online">En línea</div>
-      </div>
-      <button class="chat-close" id="chat-close" aria-label="Cerrar">✕</button>
-    </div>
-    <div class="chat-messages" id="chat-messages">
-      <div class="chat-typing" id="chat-typing">
-        <span></span><span></span><span></span>
-      </div>
-    </div>
-    <div class="chat-input-row">
-      <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." maxlength="300">
-      <button class="chat-send" id="chat-send" aria-label="Enviar">➤</button>
-    </div>
+  <div class="nav-mid">
+    <button class="lang-btn active" id="btn-es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn"        id="btn-en" onclick="setLang('en')">EN</button>
   </div>
 
-  <script>
+  <a href="#reservar" class="nav-cta">
+    <span data-lang="es">Agenda tu demo gratis</span>
+    <span data-lang="en">Book your free demo</span>
+  </a>
+</nav>
+
+<!-- ════════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════════ -->
+<section>
+  <div id="hero">
+    <div>
+      <div class="hero-eyebrow fade-up">
+        <span class="eyebrow-dot"></span>
+        <span data-lang="es">Automatización para negocios locales</span>
+        <span data-lang="en">Automation for local businesses</span>
+      </div>
+
+      <h1 class="hero-h1 fade-up d1">
+        <span data-lang="es">Nunca pierdas un cliente <span class="accent">después de hora.</span></span>
+        <span data-lang="en">Never lose a client <span class="accent">after hours.</span></span>
+      </h1>
+
+      <p class="hero-sub fade-up d2">
+        <span data-lang="es">Drivft responde, agenda y cobra por ti — 24/7, en español e inglés. Para salones, spas, barberías y restaurantes de Kissimmee y Orlando.</span>
+        <span data-lang="en">Drivft responds, schedules, and collects payments for you — 24/7, in Spanish and English. For salons, spas, barbershops, and restaurants in Kissimmee and Orlando.</span>
+      </p>
+
+      <div class="hero-btns fade-up d3">
+        <a href="#reservar" class="btn-primary">
+          <span data-lang="es">Empieza gratis →</span>
+          <span data-lang="en">Start for free →</span>
+        </a>
+        <a href="#como" class="btn-ghost">
+          <span data-lang="es">Ver cómo funciona</span>
+          <span data-lang="en">See how it works</span>
+        </a>
+      </div>
+
+      <p class="hero-note fade-up d3">
+        <span data-lang="es">Sin tarjeta · Configuración en 5 minutos</span>
+        <span data-lang="en">No credit card · 5-minute setup</span>
+      </p>
+
+      <div class="hero-stats fade-up d4">
+        <div class="stat">
+          <span class="stat-val">+40%</span>
+          <span class="stat-lbl" data-lang="es">más reservas</span>
+          <span class="stat-lbl" data-lang="en">more bookings</span>
+        </div>
+        <div class="stat-div"></div>
+        <div class="stat">
+          <span class="stat-val">24/7</span>
+          <span class="stat-lbl" data-lang="es">atención</span>
+          <span class="stat-lbl" data-lang="en">availability</span>
+        </div>
+        <div class="stat-div"></div>
+        <div class="stat">
+          <span class="stat-val">5 min</span>
+          <span class="stat-lbl" data-lang="es">para empezar</span>
+          <span class="stat-lbl" data-lang="en">to get started</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone mockup -->
+    <div class="hero-visual fade-up d2">
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="ph-header">
+              <div class="ph-avatar">✨</div>
+              <div>
+                <div class="ph-name">{{NEGOCIO_NOMBRE}}</div>
+                <div class="ph-status">{{NEGOCIO_SLOGAN}}</div>
+              </div>
+            </div>
+            <div class="ph-msgs">
+              <div class="pm bot" data-lang="es">¡Hola! ¿En qué puedo ayudarte? 😊</div>
+              <div class="pm bot" data-lang="en">Hi! How can I help you? 😊</div>
+              <div class="pm user" data-lang="es">Quiero una cita a las 3pm</div>
+              <div class="pm user" data-lang="en">I'd like an appointment at 3pm</div>
+              <div class="pm bot" data-lang="es">¡Perfecto! Te reservo para hoy a las 3:00 PM. ¿Tu nombre?</div>
+              <div class="pm bot" data-lang="en">Perfect! I'll book you for today at 3:00 PM. Your name?</div>
+              <div class="pm user">Bella 🌸</div>
+              <div class="pm bot" data-lang="es">✅ ¡Listo, Bella! Cita confirmada.</div>
+              <div class="pm bot" data-lang="en">✅ Done, Bella! Appointment confirmed.</div>
+            </div>
+            <div class="ph-bar">
+              <div class="ph-bar-fake"></div>
+              <div class="ph-bar-send">➤</div>
+            </div>
+          </div>
+        </div>
+        <div class="confirm-float">
+          <div class="cf-icon">✅</div>
+          <div class="cf-title" data-lang="es">Cita confirmada</div>
+          <div class="cf-title" data-lang="en">Appointment confirmed</div>
+          <div class="cf-sub">Bella · 3:00 PM</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     LOGO STRIP
+════════════════════════════════════════════════ -->
+<div id="logos">
+  <div class="logos-inner fade-up">
+    <p class="logos-lbl">
+      <span data-lang="es">Negocios que ya automatizan con Drivft</span>
+      <span data-lang="en">Businesses already automating with Drivft</span>
+    </p>
+    <div class="logos-row">
+      <span class="logo-chip">Bella Salon</span>
+      <span class="logo-chip">El Buen Sabor</span>
+      <span class="logo-chip">Lux Nails</span>
+      <span class="logo-chip">Kings Barber</span>
+      <span class="logo-chip">Spa Serenity</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SERVICES
+════════════════════════════════════════════════ -->
+<section id="servicios">
+  <div class="sw">
+    <p class="sec-tag fade-up">
+      <span data-lang="es">Servicios</span>
+      <span data-lang="en">Services</span>
+    </p>
+    <h2 class="sec-h2 fade-up d1">
+      <span data-lang="es">Todo lo que tu negocio necesita</span>
+      <span data-lang="en">Everything your business needs</span>
+    </h2>
+    <p class="sec-sub fade-up d2">
+      <span data-lang="es">Un sistema completo de automatización para negocios de servicio en Kissimmee y Orlando.</span>
+      <span data-lang="en">A complete automation system for service businesses in Kissimmee and Orlando.</span>
+    </p>
+
+    <div class="srv-grid">
+      <div class="srv-card fade-up">
+        <div class="srv-ico">🤖</div>
+        <div class="srv-name">
+          <span data-lang="es">Chatbot con IA</span>
+          <span data-lang="en">AI Chatbot</span>
+        </div>
+        <div class="srv-desc">
+          <span data-lang="es">Responde preguntas y agenda citas por WhatsApp y tu web, día y noche.</span>
+          <span data-lang="en">Answers questions and schedules appointments via WhatsApp and your website, day and night.</span>
+        </div>
+      </div>
+
+      <div class="srv-card fade-up d1">
+        <div class="srv-ico">📅</div>
+        <div class="srv-name">
+          <span data-lang="es">Reservas online</span>
+          <span data-lang="en">Online Bookings</span>
+        </div>
+        <div class="srv-desc">
+          <span data-lang="es">Tus clientes reservan solos desde el celular, sin llamadas ni mensajes manuales.</span>
+          <span data-lang="en">Your clients book on their own from their phone, no calls or manual messages needed.</span>
+        </div>
+      </div>
+
+      <div class="srv-card fade-up d2">
+        <div class="srv-ico">📲</div>
+        <div class="srv-name">
+          <span data-lang="es">Recordatorios SMS</span>
+          <span data-lang="en">SMS Reminders</span>
+        </div>
+        <div class="srv-desc">
+          <span data-lang="es">Reducen ausencias hasta un 40%. Se envían automáticamente antes de cada cita.</span>
+          <span data-lang="en">Reduce no-shows by up to 40%. Sent automatically before each appointment.</span>
+        </div>
+      </div>
+
+      <div class="srv-card fade-up d3">
+        <div class="srv-ico">💳</div>
+        <div class="srv-name">
+          <span data-lang="es">Cobros automáticos</span>
+          <span data-lang="en">Automatic Payments</span>
+        </div>
+        <div class="srv-desc">
+          <span data-lang="es">Pagos con Stripe sin perseguir a nadie. Depósitos y cobros en piloto automático.</span>
+          <span data-lang="en">Stripe payments without chasing anyone. Deposits and charges on autopilot.</span>
+        </div>
+      </div>
+
+      <div class="srv-card fade-up d4">
+        <div class="srv-ico">⭐</div>
+        <div class="srv-name">
+          <span data-lang="es">Reseñas de Google</span>
+          <span data-lang="en">Google Reviews</span>
+        </div>
+        <div class="srv-desc">
+          <span data-lang="es">Pedimos reseñas automáticamente a los clientes felices y mejoramos tu reputación online.</span>
+          <span data-lang="en">We automatically request reviews from happy clients and boost your online reputation.</span>
+        </div>
+      </div>
+
+      <div class="srv-card dark fade-up d5">
+        <div class="srv-ico">🚀</div>
+        <div class="srv-name">
+          <span data-lang="es">¿Listo para dejar de perder clientes?</span>
+          <span data-lang="en">Ready to stop losing clients?</span>
+        </div>
+        <div class="srv-desc">
+          <span data-lang="es">Configura tu sistema en 5 minutos. Sin tarjeta de crédito.</span>
+          <span data-lang="en">Set up your system in 5 minutes. No credit card required.</span>
+        </div>
+        <a href="#reservar" class="srv-link">
+          <span data-lang="es">Empezar ahora →</span>
+          <span data-lang="en">Start now →</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     HOW IT WORKS
+════════════════════════════════════════════════ -->
+<section id="como">
+  <div class="sw">
+    <p class="sec-tag fade-up">
+      <span data-lang="es">Cómo funciona</span>
+      <span data-lang="en">How it works</span>
+    </p>
+    <h2 class="sec-h2 fade-up d1">
+      <span data-lang="es">De cero a automatizado en 3 pasos</span>
+      <span data-lang="en">From zero to automated in 3 steps</span>
+    </h2>
+    <p class="sec-sub fade-up d2">
+      <span data-lang="es">Sin complicaciones técnicas. Nosotros hacemos la configuración completa.</span>
+      <span data-lang="en">No technical complications. We handle the complete setup for you.</span>
+    </p>
+
+    <div class="steps">
+      <div class="step fade-up">
+        <div class="step-num">01</div>
+        <div class="step-title" data-lang="es">Conectamos tu negocio</div>
+        <div class="step-title" data-lang="en">We connect your business</div>
+        <div class="step-desc" data-lang="es">Integramos WhatsApp, tu web y tu calendario en un solo sistema listo para funcionar.</div>
+        <div class="step-desc" data-lang="en">We integrate WhatsApp, your website, and your calendar into one ready-to-run system.</div>
+      </div>
+      <div class="step fade-up d1">
+        <div class="step-num">02</div>
+        <div class="step-title" data-lang="es">Automatizamos la atención</div>
+        <div class="step-title" data-lang="en">We automate your service</div>
+        <div class="step-desc" data-lang="es">Entrenamos al asistente con los servicios, precios y horarios de tu negocio.</div>
+        <div class="step-desc" data-lang="en">We train the assistant with your services, prices, and business hours.</div>
+      </div>
+      <div class="step fade-up d2">
+        <div class="step-num">03</div>
+        <div class="step-title" data-lang="es">Tú recibes más clientes</div>
+        <div class="step-title" data-lang="en">You receive more clients</div>
+        <div class="step-desc" data-lang="es">El sistema trabaja solo, 24/7. Tú solo enfócate en dar el mejor servicio.</div>
+        <div class="step-desc" data-lang="en">The system works on its own, 24/7. You just focus on delivering great service.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     PRICING
+════════════════════════════════════════════════ -->
+<section id="precios">
+  <div class="sw" style="padding-top:88px;padding-bottom:88px">
+    <p class="sec-tag fade-up" style="text-align:center">
+      <span data-lang="es">Precios</span>
+      <span data-lang="en">Pricing</span>
+    </p>
+    <h2 class="sec-h2 fade-up d1" style="text-align:center">
+      <span data-lang="es">Planes simples, sin sorpresas</span>
+      <span data-lang="en">Simple plans, no surprises</span>
+    </h2>
+    <p class="sec-sub fade-up d2" style="text-align:center;margin-left:auto;margin-right:auto">
+      <span data-lang="es">Empieza en el plan que necesitas y escala cuando quieras.</span>
+      <span data-lang="en">Start with the plan you need and scale whenever you want.</span>
+    </p>
+
+    <div class="price-grid">
+      <!-- Inicio -->
+      <div class="price-card fade-up">
+        <div class="price-plan" data-lang="es">Inicio</div>
+        <div class="price-plan" data-lang="en">Starter</div>
+        <div class="price-amt">$149</div>
+        <div class="price-per" data-lang="es">/mes · sin contratos</div>
+        <div class="price-per" data-lang="en">/mo · no contracts</div>
+        <div class="price-div"></div>
+        <ul class="price-feats">
+          <li data-lang="es">Chatbot con IA</li>
+          <li data-lang="en">AI Chatbot</li>
+          <li data-lang="es">Reservas online</li>
+          <li data-lang="en">Online bookings</li>
+          <li data-lang="es">Recordatorios SMS</li>
+          <li data-lang="en">SMS reminders</li>
+          <li data-lang="es">Soporte en español</li>
+          <li data-lang="en">Spanish support</li>
+        </ul>
+        <button class="price-btn" onclick="document.getElementById('reservar').scrollIntoView({behavior:'smooth'})">
+          <span data-lang="es">Empezar</span>
+          <span data-lang="en">Get started</span>
+        </button>
+      </div>
+
+      <!-- Crecimiento (Popular) -->
+      <div class="price-card pop fade-up d1">
+        <span class="pop-badge">POPULAR</span>
+        <div class="price-plan" data-lang="es">Crecimiento</div>
+        <div class="price-plan" data-lang="en">Growth</div>
+        <div class="price-amt">$299</div>
+        <div class="price-per" data-lang="es">/mes · sin contratos</div>
+        <div class="price-per" data-lang="en">/mo · no contracts</div>
+        <div class="price-div"></div>
+        <ul class="price-feats">
+          <li data-lang="es">Todo del plan Inicio</li>
+          <li data-lang="en">Everything in Starter</li>
+          <li data-lang="es">Cobros con Stripe</li>
+          <li data-lang="en">Stripe payments</li>
+          <li data-lang="es">Reseñas de Google</li>
+          <li data-lang="en">Google Reviews</li>
+          <li data-lang="es">Reportes mensuales</li>
+          <li data-lang="en">Monthly reports</li>
+          <li data-lang="es">Soporte prioritario</li>
+          <li data-lang="en">Priority support</li>
+        </ul>
+        <button class="price-btn filled" onclick="document.getElementById('reservar').scrollIntoView({behavior:'smooth'})">
+          <span data-lang="es">Empezar</span>
+          <span data-lang="en">Get started</span>
+        </button>
+      </div>
+
+      <!-- Pro -->
+      <div class="price-card fade-up d2">
+        <div class="price-plan">Pro</div>
+        <div class="price-amt">$549</div>
+        <div class="price-per" data-lang="es">/mes · sin contratos</div>
+        <div class="price-per" data-lang="en">/mo · no contracts</div>
+        <div class="price-div"></div>
+        <ul class="price-feats">
+          <li data-lang="es">Todo del plan Crecimiento</li>
+          <li data-lang="en">Everything in Growth</li>
+          <li data-lang="es">Múltiples sucursales</li>
+          <li data-lang="en">Multiple locations</li>
+          <li data-lang="es">Integraciones custom</li>
+          <li data-lang="en">Custom integrations</li>
+          <li data-lang="es">Manager dedicado</li>
+          <li data-lang="en">Dedicated manager</li>
+          <li data-lang="es">Onboarding en persona</li>
+          <li data-lang="en">In-person onboarding</li>
+        </ul>
+        <button class="price-btn" onclick="document.getElementById('reservar').scrollIntoView({behavior:'smooth'})">
+          <span data-lang="es">Contactar</span>
+          <span data-lang="en">Contact us</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     TESTIMONIALS
+════════════════════════════════════════════════ -->
+<section id="testimonios">
+  <div class="sw">
+    <p class="sec-tag fade-up" style="text-align:center">
+      <span data-lang="es">Testimonios</span>
+      <span data-lang="en">Testimonials</span>
+    </p>
+    <h2 class="sec-h2 fade-up d1" style="text-align:center">
+      <span data-lang="es">Lo que dicen nuestros clientes</span>
+      <span data-lang="en">What our clients say</span>
+    </h2>
+    <p class="sec-sub fade-up d2" style="text-align:center;margin-left:auto;margin-right:auto;margin-bottom:52px">
+      <span data-lang="es">Resultados reales de negocios locales en Kissimmee y Orlando.</span>
+      <span data-lang="en">Real results from local businesses in Kissimmee and Orlando.</span>
+    </p>
+
+    <div class="test-grid">
+      <div class="test-card fade-up">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-quote" data-lang="es">"Subimos como un 30% en reservas desde que pusimos el chatbot. Los clientes reservan solos a cualquier hora."</p>
+        <p class="test-quote" data-lang="en">"We went up about 30% in bookings since we set up the chatbot. Clients book on their own at any hour."</p>
+        <div class="test-author">
+          <div class="test-avatar">M</div>
+          <div>
+            <div class="test-name">María G.</div>
+            <div class="test-biz">Bella Salon · Kissimmee</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="test-card fade-up d1">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-quote" data-lang="es">"Los recordatorios SMS quitaron el problema de los que no llegaban. Ya casi no tenemos ausencias."</p>
+        <p class="test-quote" data-lang="en">"The SMS reminders eliminated the no-show problem. We barely have any absences anymore."</p>
+        <div class="test-author">
+          <div class="test-avatar">C</div>
+          <div>
+            <div class="test-name">Carlos R.</div>
+            <div class="test-biz">Barbería Kings · Orlando</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="test-card fade-up d2">
+        <div class="test-stars">★★★★★</div>
+        <p class="test-quote" data-lang="es">"Ya no persigo a nadie por WhatsApp. El sistema cobra el depósito solo y yo me enfoco en las uñas."</p>
+        <p class="test-quote" data-lang="en">"I no longer chase anyone on WhatsApp. The system collects the deposit on its own and I focus on the nails."</p>
+        <div class="test-author">
+          <div class="test-avatar">J</div>
+          <div>
+            <div class="test-name">Jennifer P.</div>
+            <div class="test-biz">Lux Nails · Kissimmee</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     CTA BANNER
+════════════════════════════════════════════════ -->
+<div id="cta-sec">
+  <div class="cta-inner fade-up">
+    <div class="cta-txt">
+      <h2 data-lang="es">Tu próximo cliente está escribiendo ahora mismo.</h2>
+      <h2 data-lang="en">Your next client is typing right now.</h2>
+      <p data-lang="es">¿Vas a contestar tú, o lo hace tu asistente automático?</p>
+      <p data-lang="en">Are you going to answer, or will your automated assistant handle it?</p>
+    </div>
+    <a href="#reservar" class="btn-white">
+      <span data-lang="es">Agenda una demo →</span>
+      <span data-lang="en">Book a demo →</span>
+    </a>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     BOOKING FORM
+════════════════════════════════════════════════ -->
+<section id="reservar">
+  <div class="sw">
+    <p class="sec-tag fade-up">
+      <span data-lang="es">Reservaciones</span>
+      <span data-lang="en">Reservations</span>
+    </p>
+    <h2 class="sec-h2 fade-up d1">
+      <span data-lang="es">Reserva tu cita</span>
+      <span data-lang="en">Book your appointment</span>
+    </h2>
+    <p class="sec-sub fade-up d2">
+      <span data-lang="es">Confirma tu lugar en segundos. Recibirás un recordatorio automático por SMS.</span>
+      <span data-lang="en">Confirm your spot in seconds. You'll receive an automatic SMS reminder.</span>
+    </p>
+
+    <div class="bk-card fade-up d3">
+
+      <div class="wa-hint">
+        <strong>
+          📱&nbsp;<span data-lang="es">Reserva también por WhatsApp</span><span data-lang="en">Also book by WhatsApp</span>
+        </strong>
+        <span data-lang="es">Escríbenos al <strong>{{NEGOCIO_TELEFONO}}</strong> — nuestro asistente te atiende 24/7.</span>
+        <span data-lang="en">Message us at <strong>{{NEGOCIO_TELEFONO}}</strong> — our assistant is available 24/7.</span>
+      </div>
+
+      <form id="form">
+
+        <p class="fsec">
+          <span data-lang="es">Tus datos</span>
+          <span data-lang="en">Your info</span>
+        </p>
+
+        <label class="flabel" for="nombre">
+          <span data-lang="es">Nombre completo</span>
+          <span data-lang="en">Full name</span>
+        </label>
+        <input class="finput" type="text" id="nombre" placeholder="Ej: Juan García" required>
+
+        <label class="flabel" for="email">Email</label>
+        <input class="finput" type="email" id="email" placeholder="tu@email.com" required>
+
+        <label class="flabel" for="telefono">
+          <span data-lang="es">Teléfono (solo números)</span>
+          <span data-lang="en">Phone (numbers only)</span>
+        </label>
+        <input class="finput" type="tel" id="telefono" placeholder="3051234567">
+
+        <p class="fsec">
+          <span data-lang="es">Tu cita</span>
+          <span data-lang="en">Your appointment</span>
+        </p>
+
+        <label class="flabel" for="servicio">
+          <span data-lang="es">Servicio</span>
+          <span data-lang="en">Service</span>
+        </label>
+        <select class="fselect" id="servicio">
+          {{SERVICIOS_OPTIONS}}
+        </select>
+
+        <div class="frow">
+          <div>
+            <label class="flabel" for="fecha">
+              <span data-lang="es">Fecha</span>
+              <span data-lang="en">Date</span>
+            </label>
+            <input class="finput" type="date" id="fecha" required>
+          </div>
+          <div>
+            <label class="flabel" for="hora">
+              <span data-lang="es">Hora</span>
+              <span data-lang="en">Time</span>
+            </label>
+            <select class="fselect" id="hora">
+              {{HORAS_OPTIONS}}
+            </select>
+          </div>
+        </div>
+
+        <div class="dep-box">
+          <label class="dep-toggle">
+            <input type="checkbox" id="pagar-deposito">
+            <span>
+              <span data-lang="es">Asegurar cita con depósito</span>
+              <span data-lang="en">Secure appointment with deposit</span>
+              <span class="dep-badge">${{DEPOSITO_MONTO}} · 🔒</span>
+            </span>
+          </label>
+          <div id="card-element-wrap">
+            <div id="card-element"></div>
+            <div id="card-error"></div>
+            <p class="dep-note">
+              <span data-lang="es">🔒 Pago seguro con Stripe. El depósito se aplica al total del servicio.</span>
+              <span data-lang="en">🔒 Secure payment with Stripe. The deposit applies to your total service cost.</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="sms-wrap">
+          <input type="checkbox" id="sms-optin" required>
+          <label for="sms-optin">
+            I agree to receive appointment confirmations and reminders via SMS from
+            <strong>{{NEGOCIO_NOMBRE}}</strong>.
+            Msg &amp; Data rates may apply. Reply <strong>STOP</strong> to cancel,
+            <strong>HELP</strong> for help.
+            <a href="/privacy" target="_blank">Privacy Policy</a> ·
+            <a href="/terms" target="_blank">Terms</a>
+          </label>
+        </div>
+
+        <button type="submit" class="sub-btn" id="btn">
+          <span data-lang="es">Confirmar reservación {{NEGOCIO_EMOJI}}</span>
+          <span data-lang="en">Confirm reservation {{NEGOCIO_EMOJI}}</span>
+        </button>
+      </form>
+
+      <div class="success" id="success">
+        <div class="suc-check">✓</div>
+        <h2 data-lang="es">¡Reservación confirmada!</h2>
+        <h2 data-lang="en">Reservation confirmed!</h2>
+        <p data-lang="es">Revisa tu email para ver los detalles.<br>Si diste tu teléfono también recibirás un recordatorio por SMS.</p>
+        <p data-lang="en">Check your email for the details.<br>If you provided your phone you'll also receive an SMS reminder.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════ -->
+<footer>
+  <a href="#" class="ft-logo">
+    <div class="ft-logo-mark"></div>
+    <span class="ft-logo-text">Drivft</span>
+  </a>
+  <p class="ft-loc">{{NEGOCIO_DIRECCION}}</p>
+  <p class="ft-copy">
+    © 2026 Drivft LLC.
+    <span data-lang="es">Todos los derechos reservados.</span>
+    <span data-lang="en">All rights reserved.</span>
+  </p>
+  <div class="ft-links">
+    <a href="/privacy" data-lang="es">Política de Privacidad</a>
+    <a href="/privacy" data-lang="en">Privacy Policy</a>
+    <span class="ft-dot">·</span>
+    <a href="/terms" data-lang="es">Términos SMS</a>
+    <a href="/terms" data-lang="en">SMS Terms</a>
+    <span class="ft-dot">·</span>
+    <a href="tel:{{NEGOCIO_TELEFONO}}">{{NEGOCIO_TELEFONO}}</a>
+    <span class="ft-dot">·</span>
+    <a href="mailto:{{NEGOCIO_EMAIL}}">{{NEGOCIO_EMAIL}}</a>
+  </div>
+</footer>
+
+<!-- ════════════════════════════════════════════════
+     CHATBOT WIDGET
+════════════════════════════════════════════════ -->
+<button id="chat-bubble-btn" aria-label="Abrir chat">💬</button>
+
+<div id="chat-window">
+  <div class="chat-hdr">
+    <span class="chat-hdr-ico">{{NEGOCIO_EMOJI}}</span>
+    <div class="chat-hdr-info">
+      <div class="chat-hdr-name">{{NEGOCIO_NOMBRE}}</div>
+      <div class="chat-online">
+        <span data-lang="es">En línea</span>
+        <span data-lang="en">Online</span>
+      </div>
+    </div>
+    <button class="chat-close" id="chat-close" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="chat-msgs" id="chat-messages">
+    <div class="chat-typing" id="chat-typing">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+  <div class="chat-inp-row">
+    <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." maxlength="300">
+    <button class="chat-send" id="chat-send" aria-label="Enviar">➤</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════ -->
+<script>
+  /* ── Language toggle ───────────────────────────────────── */
+  function setLang(lang) {
+    document.body.className = 'lang-' + lang;
+    document.getElementById('btn-es').className = 'lang-btn' + (lang === 'es' ? ' active' : '');
+    document.getElementById('btn-en').className = 'lang-btn' + (lang === 'en' ? ' active' : '');
+    localStorage.setItem('drivft-lang', lang);
+  }
   (function () {
-    const BIENVENIDA = "{{CHATBOT_BIENVENIDA_ES}}";
-    const btn    = document.getElementById('chat-bubble-btn');
-    const win    = document.getElementById('chat-window');
-    const msgs   = document.getElementById('chat-messages');
-    const typing = document.getElementById('chat-typing');
-    const input  = document.getElementById('chat-input');
-    const send   = document.getElementById('chat-send');
-    const close  = document.getElementById('chat-close');
-    let opened   = false;
+    setLang(localStorage.getItem('drivft-lang') || 'es');
+  })();
+
+  /* ── Nav shrink on scroll ──────────────────────────────── */
+  window.addEventListener('scroll', function () {
+    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+  }, { passive: true });
+
+  /* ── Intersection Observer (fade-up) ───────────────────── */
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.fade-up').forEach(function (el) { io.observe(el); });
+
+  /* ── Date min ──────────────────────────────────────────── */
+  document.getElementById('fecha').min = new Date().toISOString().split('T')[0];
+
+  /* ── Stripe setup ──────────────────────────────────────── */
+  var stripe   = Stripe('{{STRIPE_PUBLIC_KEY}}');
+  var elements = stripe.elements();
+  var cardEl   = elements.create('card', {
+    style: {
+      base: {
+        fontSize: '14px',
+        color: '#0D0D0D',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        '::placeholder': { color: '#9CA3AF' }
+      }
+    }
+  });
+  cardEl.mount('#card-element');
+
+  var chk = document.getElementById('pagar-deposito');
+  chk.addEventListener('change', function () {
+    document.getElementById('card-element-wrap').style.display = chk.checked ? 'block' : 'none';
+    document.getElementById('card-error').textContent = '';
+  });
+
+  /* ── Form submit ───────────────────────────────────────── */
+  var btn = document.getElementById('btn');
+  var btnHTML = btn.innerHTML;
+
+  document.getElementById('form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    var smsChk = document.getElementById('sms-optin');
+    if (!smsChk.checked) {
+      smsChk.focus();
+      smsChk.setCustomValidity('Please agree to receive SMS reminders to continue.');
+      smsChk.reportValidity();
+      return;
+    }
+    smsChk.setCustomValidity('');
+
+    btn.disabled = true;
+
+    var datos = {
+      nombre:   document.getElementById('nombre').value,
+      email:    document.getElementById('email').value,
+      telefono: document.getElementById('telefono').value,
+      servicio: document.getElementById('servicio').value,
+      fecha:    document.getElementById('fecha').value,
+      hora:     document.getElementById('hora').value,
+      deposito: chk.checked
+    };
+
+    if (chk.checked) {
+      btn.textContent = 'Procesando depósito…';
+      try {
+        var piRes  = await fetch('/crear-deposito', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: datos.nombre, email: datos.email, servicio: datos.servicio })
+        });
+        var piData = await piRes.json();
+        if (piData.error) throw new Error(piData.error);
+
+        var result = await stripe.confirmCardPayment(piData.client_secret, {
+          payment_method: { card: cardEl, billing_details: { name: datos.nombre, email: datos.email } }
+        });
+        if (result.error) {
+          document.getElementById('card-error').textContent = result.error.message;
+          btn.disabled = false; btn.innerHTML = btnHTML; return;
+        }
+        datos.deposito_pagado = true;
+      } catch (err) {
+        document.getElementById('card-error').textContent = 'Error de pago: ' + err.message;
+        btn.disabled = false; btn.innerHTML = btnHTML; return;
+      }
+    }
+
+    btn.textContent = 'Confirmando reservación…';
+    try {
+      var res = await fetch('/reservar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      if (res.ok) {
+        document.getElementById('form').style.display    = 'none';
+        document.getElementById('success').style.display = 'block';
+      } else {
+        alert('Hubo un error. Intenta de nuevo.');
+        btn.disabled = false; btn.innerHTML = btnHTML;
+      }
+    } catch (err) {
+      alert('No se pudo conectar. Asegúrate que el servidor está corriendo.');
+      btn.disabled = false; btn.innerHTML = btnHTML;
+    }
+  });
+
+  /* ── Chatbot ───────────────────────────────────────────── */
+  (function () {
+    var BIENVENIDA = "{{CHATBOT_BIENVENIDA_ES}}";
+    var bubbleBtn  = document.getElementById('chat-bubble-btn');
+    var win        = document.getElementById('chat-window');
+    var msgs       = document.getElementById('chat-messages');
+    var typing     = document.getElementById('chat-typing');
+    var input      = document.getElementById('chat-input');
+    var sendBtn    = document.getElementById('chat-send');
+    var closeBtn   = document.getElementById('chat-close');
+    var opened     = false;
 
     function addMsg(text, who) {
-      const d = document.createElement('div');
+      var d = document.createElement('div');
       d.className = 'chat-msg ' + who;
       d.textContent = text;
       msgs.insertBefore(d, typing);
       msgs.scrollTop = msgs.scrollHeight;
     }
-
-    function showTyping() {
-      typing.style.display = 'flex';
-      msgs.scrollTop = msgs.scrollHeight;
-    }
+    function showTyping() { typing.style.display = 'flex'; msgs.scrollTop = msgs.scrollHeight; }
     function hideTyping() { typing.style.display = 'none'; }
 
     async function sendMsg() {
-      const text = input.value.trim();
+      var text = input.value.trim();
       if (!text) return;
       input.value = '';
       addMsg(text, 'user');
       showTyping();
       try {
-        const r = await fetch('/chat', {
+        var r    = await fetch('/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mensaje: text })
         });
-        const data = await r.json();
+        var data = await r.json();
         hideTyping();
         addMsg(data.respuesta || '...', 'bot');
-      } catch {
+      } catch (_) {
         hideTyping();
         addMsg('⚠️ Sin conexión. Intenta de nuevo.', 'bot');
       }
     }
 
-    btn.addEventListener('click', () => {
-      const isOpen = win.classList.toggle('open');
-      btn.textContent = isOpen ? '✕' : '💬';
+    bubbleBtn.addEventListener('click', function () {
+      var isOpen = win.classList.toggle('open');
+      bubbleBtn.textContent = isOpen ? '✕' : '💬';
       if (isOpen && !opened) {
         opened = true;
-        setTimeout(() => { showTyping(); }, 400);
-        setTimeout(() => { hideTyping(); addMsg(BIENVENIDA, 'bot'); }, 1400);
+        setTimeout(function () { showTyping(); }, 400);
+        setTimeout(function () { hideTyping(); addMsg(BIENVENIDA, 'bot'); }, 1400);
       }
     });
-
-    close.addEventListener('click', () => {
-      win.classList.remove('open');
-      btn.textContent = '💬';
+    closeBtn.addEventListener('click', function () {
+      win.classList.remove('open'); bubbleBtn.textContent = '💬';
     });
-
-    send.addEventListener('click', sendMsg);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
+    sendBtn.addEventListener('click', sendMsg);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') sendMsg(); });
   })();
-  </script>
+</script>
 </body>
 </html>
