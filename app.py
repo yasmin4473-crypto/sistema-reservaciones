@@ -504,7 +504,7 @@ _booking_state: dict = {}
 
 _BOOKING_SYSTEM_PROMPT = f"""You are a friendly booking assistant for {NEGOCIO_NOMBRE} — {NEGOCIO_SLOGAN}.
 
-Today's date: {{TODAY}}
+{{DATE_CONTEXT}}
 Available services: {", ".join(SERVICIOS)}
 Available time slots: {", ".join(HORAS_DISPONIBLES)}
 
@@ -596,8 +596,12 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
     # ── Simple greetings → pass through to AI directly (no state needed) ──
     greetings = {"hola", "hi", "hello", "hey", "menu", "menú", "info", "precio", "precios"}
     if mensaje_lower in greetings:
-        today = datetime.now().strftime("%Y-%m-%d (%A)")
-        system = _BOOKING_SYSTEM_PROMPT.replace("{TODAY}", today)
+        _now = datetime.now()
+        date_ctx = (
+            f"Today's date is {_now.strftime('%Y-%m-%d')} ({_now.strftime('%A')}). "
+            f"Tomorrow's date is {(_now + timedelta(days=1)).strftime('%Y-%m-%d')}."
+        )
+        system = _BOOKING_SYSTEM_PROMPT.replace("{DATE_CONTEXT}", date_ctx)
         reply = _call_openrouter([
             {"role": "system", "content": system},
             {"role": "user",   "content": mensaje},
