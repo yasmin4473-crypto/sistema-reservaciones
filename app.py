@@ -498,60 +498,177 @@ def reservar():
     return jsonify({"ok": True})
 
 
+# ─── AI BOOKING ENGINE ───────────────────────────────────
+# Per-number state: { numero: { nombre, fecha, hora, servicio, pendiente_confirmacion } }
+_booking_state: dict = {}
+
+_BOOKING_SYSTEM_PROMPT = f"""You are a friendly booking assistant for {NEGOCIO_NOMBRE} — {NEGOCIO_SLOGAN}.
+
+Today's date: {{TODAY}}
+Available services: {", ".join(SERVICIOS)}
+Available time slots: {", ".join(HORAS_DISPONIBLES)}
+
+Your job is to collect 4 pieces of information to book an appointment:
+  1. Client name
+  2. Date (convert relative dates like "tomorrow", "next Monday", "mañana" to YYYY-MM-DD)
+  3. Time (match to one of the available slots above)
+  4. Service (match to one of the available services above)
+
+Rules:
+- Always reply in the SAME language the user writes in (Spanish or English).
+- Ask for missing fields one at a time in a natural, friendly way.
+- When you have all 4 fields, summarize and ask for confirmation. Example:
+  "Perfecto! Tu cita queda así:\n👤 {'{nombre}'}\n📅 {'{fecha}'}\n⏰ {'{hora}'}\n💆 {'{servicio}'}\n\n¿Confirmas? (sí / no)"
+- ONLY output a JSON block when the user has confirmed. Format (nothing else, no prose):
+  BOOKING_JSON:{{"nombre":"{'{nombre}'}", "fecha":"YYYY-MM-DD", "hora":"{'{hora}'}", "servicio":"{'{servicio}'}"}}.
+- If the user says something off-topic, answer briefly then bring them back to booking.
+- Keep replies concise (under 280 chars for SMS friendliness).
+- For greetings like "hola" or "hi", give a warm welcome and ask how you can help.
+"""
+
+def _call_openrouter(messages: list) -> str:
+    """Call OpenRouter and return the assistant reply text, or '' on failure."""
+    if not _OPENROUTER_API_KEY:
+        return ""
+    payload = json.dumps({
+        "model": "openai/gpt-4o-mini",
+        "messages": messages,
+        "max_tokens": 200,
+        "temperature": 0.4,
+    }).encode("utf-8")
+    try:
+        req = _urllib_req.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {_OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://getdrivftllc.com",
+                "X-Title": NEGOCIO_NOMBRE,
+            },
+            method="POST",
+        )
+        with _urllib_req.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        return result["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"[AI Booking] OpenRouter error: {e}")
+        return ""
+
+
+def _save_booking(nombre, fecha, hora, servicio, telefono, canal):
+    """Persist booking and trigger all notifications. Returns the saved record."""
+    nueva = {
+        "id":       datetime.now().strftime("%Y%m%d%H%M%S"),
+        "nombre":   nombre,
+        "email":    "",
+        "telefono": telefono,
+        "fecha":    fecha,
+        "hora":     hora,
+        "servicio": servicio,
+        "estado":   "confirmada",
+        "creada":   datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "canal":    canal,
+    }
+    reservaciones = cargar()
+    reservaciones.append(nueva)
+    guardar(reservaciones)
+    notificar_dueno(nombre, fecha, hora, servicio, canal)
+    if canal == "whatsapp":
+        mandar_whatsapp(telefono, nombre, fecha, hora, servicio)
+    else:
+        mandar_sms_confirmacion(telefono, nombre, fecha, hora, servicio)
+    t = threading.Timer(86400, mandar_sms_recordatorio,
+                        args=[telefono, nombre, fecha, hora, servicio])
+    t.daemon = True
+    t.start()
+    print(f"[AI Booking] Reservación guardada: {nombre} — {fecha} {hora} ({canal})")
+    return nueva
+
+
+def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
+    """
+    Natural-language booking via AI. Maintains per-number conversation state.
+    Returns the text to send back to the user.
+    """
+    mensaje_lower = mensaje.lower().strip()
+
+    # ── Simple greetings → pass through to AI directly (no state needed) ──
+    greetings = {"hola", "hi", "hello", "hey", "menu", "menú", "info", "precio", "precios"}
+    if mensaje_lower in greetings:
+        today = datetime.now().strftime("%Y-%m-%d (%A)")
+        system = _BOOKING_SYSTEM_PROMPT.replace("{TODAY}", today)
+        reply = _call_openrouter([
+            {"role": "system", "content": system},
+            {"role": "user",   "content": mensaje},
+        ])
+        return reply or (
+            f"{NEGOCIO_EMOJI} ¡Hola! Soy el asistente de {NEGOCIO_NOMBRE}. "
+            f"¿En qué te puedo ayudar? Puedo agendar una cita para ti."
+        )
+
+    # ── Retrieve or init conversation history for this number ──
+    state = _booking_state.setdefault(numero, {"history": []})
+    history = state["history"]
+
+    # Build system prompt with today's date
+    today = datetime.now().strftime("%Y-%m-%d (%A)")
+    system = _BOOKING_SYSTEM_PROMPT.replace("{TODAY}", today)
+
+    # Append user message and call AI
+    history.append({"role": "user", "content": mensaje})
+    messages = [{"role": "system", "content": system}] + history
+
+    reply = _call_openrouter(messages)
+
+    if not reply:
+        return "Lo siento, hubo un problema. Intenta de nuevo en un momento."
+
+    # ── Check if AI returned a finalized booking JSON ──
+    if reply.startswith("BOOKING_JSON:"):
+        try:
+            raw = reply[len("BOOKING_JSON:"):].strip()
+            data = json.loads(raw)
+            _save_booking(
+                nombre   = data.get("nombre", "Cliente"),
+                fecha    = data["fecha"],
+                hora     = data["hora"],
+                servicio = data["servicio"],
+                telefono = numero,
+                canal    = canal,
+            )
+            # Reset state after successful booking
+            _booking_state.pop(numero, None)
+            return (
+                f"✅ ¡Reservación confirmada, {data.get('nombre', '')}!\n"
+                f"📅 {data['fecha']} a las {data['hora']}\n"
+                f"💆 {data['servicio']}\n\n"
+                f"Te esperamos en {NEGOCIO_NOMBRE}. Recibirás un recordatorio mañana."
+            )
+        except Exception as e:
+            print(f"[AI Booking] Error parsing booking JSON: {e} — raw: {reply}")
+            _booking_state.pop(numero, None)
+            return "Hubo un error al guardar tu cita. Por favor intenta de nuevo."
+
+    # ── Normal conversational reply — store assistant turn in history ──
+    history.append({"role": "assistant", "content": reply})
+
+    # Trim history to last 10 turns to avoid token bloat
+    if len(history) > 10:
+        state["history"] = history[-10:]
+
+    return reply
+
+
 # ─── RUTA 2: WhatsApp entrante (Twilio webhook) ───────────
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_entrante():
-    mensaje = request.form.get("Body", "").strip().lower()
-    numero  = request.form.get("From", "").replace("whatsapp:+1", "")
+    mensaje = request.form.get("Body", "").strip()
+    numero  = request.form.get("From", "")
+    # Normalize to E.164 digits only for state key
+    numero_key = numero.replace("whatsapp:", "").strip()
 
-    reservaciones = cargar()
-
-    if mensaje.startswith("reservar"):
-        partes = mensaje.split("/")
-        if len(partes) >= 5:
-            nueva = {
-                "id":       datetime.now().strftime("%Y%m%d%H%M%S"),
-                "nombre":   partes[1].strip().title(),
-                "email":    "",
-                "telefono": numero,
-                "fecha":    partes[2].strip(),
-                "hora":     partes[3].strip(),
-                "servicio": partes[4].strip().title(),
-                "estado":   "confirmada",
-                "creada":   datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "canal":    "whatsapp"
-            }
-            reservaciones.append(nueva)
-            guardar(reservaciones)
-
-            # ── Notificación instantánea al dueño ───────────────
-            notificar_dueno(nueva["nombre"], nueva["fecha"], nueva["hora"], nueva["servicio"], "whatsapp")
-
-            respuesta = (
-                f"{NEGOCIO_EMOJI} *{NEGOCIO_NOMBRE}*\n\n"
-                f"¡Listo {nueva['nombre']}! Tu mesa quedó para el {nueva['fecha']} a las {nueva['hora']}.\n"
-                f"Pedido: {nueva['servicio']}\n\n¡Te esperamos!"
-            )
-        else:
-            servicios_lista = "\n".join(f"• {s}" for s in SERVICIOS)
-            respuesta = (
-                f"Para reservar envíame:\n\n"
-                f"reservar / Tu nombre / Fecha (2026-05-20) / Hora (1:00 PM) / Plato\n\n"
-                f"Nuestros platos:\n{servicios_lista}"
-            )
-    elif any(w in mensaje for w in ["hola", "info", "menu", "menú", "precio"]):
-        servicios_lista = "\n".join(f"• {s}" for s in SERVICIOS)
-        respuesta = (
-            f"{NEGOCIO_EMOJI} ¡Bienvenido a *{NEGOCIO_NOMBRE}*!\n\n"
-            f"{NEGOCIO_SLOGAN}\n\n"
-            f"Nuestro menú:\n{servicios_lista}\n\n"
-            f"Para reservar:\nreservar / nombre / fecha / hora / plato"
-        )
-    else:
-        respuesta = (
-            f"{NEGOCIO_EMOJI} ¡Hola! Escribe *hola* para ver el menú "
-            f"o reserva con:\nreservar / nombre / fecha / hora / plato"
-        )
+    respuesta = process_booking_message(mensaje, numero_key, "whatsapp")
 
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -986,13 +1103,12 @@ from twilio.twiml.messaging_response import MessagingResponse
 @app.route("/sms", methods=["POST"])
 def sms_entrante():
     mensaje = request.form.get("Body", "").strip()
-    # Reutiliza el mismo chatbot AI que usa /chat
-    respuesta, _idioma = obtener_respuesta_chatbot(mensaje)
-    link = RESERVA_LINK_PR or "(configura RESERVA_LINK_PR en app.py)"
-    respuesta_completa = f"{respuesta}\n\n💈 Reserva aquí: {link}"
+    numero  = request.form.get("From", "").strip()
+
+    respuesta = process_booking_message(mensaje, numero, "sms")
 
     twiml = MessagingResponse()
-    twiml.message(respuesta_completa)
+    twiml.message(respuesta)
     return str(twiml)
 
 
