@@ -912,7 +912,7 @@ def panel():
   <span class="hdr-brand">{NEGOCIO_EMOJI} {NEGOCIO_NOMBRE}</span>
   <div class="hdr-right">
     <span class="hdr-date">{datetime.now(_EASTERN).strftime("%d/%m/%Y")}</span>
-    <a href="/panel/logout" class="hdr-logout">Salir</a>
+    <a href="/panel-logout" class="hdr-logout">Salir</a>
   </div>
 </header>
 
