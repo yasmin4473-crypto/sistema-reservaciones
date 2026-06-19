@@ -24,6 +24,9 @@ from cliente_config import (
 )
 import json, os, threading
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+_EASTERN = ZoneInfo("America/New_York")
 import stripe
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 from reportlab.lib.pagesizes import letter
@@ -601,7 +604,7 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
     # ── Simple greetings → pass through to AI directly (no state needed) ──
     greetings = {"hola", "hi", "hello", "hey", "menu", "menú", "info", "precio", "precios"}
     if mensaje_lower in greetings:
-        _now = datetime.now()
+        _now = datetime.now(_EASTERN)
         date_ctx = (
             f"Today's date is {_now.strftime('%Y-%m-%d')} ({_now.strftime('%A')}). "
             f"Tomorrow's date is {(_now + timedelta(days=1)).strftime('%Y-%m-%d')}."
