@@ -739,9 +739,6 @@ def panel():
     total_mes    = len(reservas_mes)
     monto_mes    = total_mes * TARIFA_POR_RESERVA
 
-    c1 = COLOR_PRIMARIO
-    c2 = COLOR_SECUNDARIO
-
     html = f"""
 <!DOCTYPE html>
 <html lang="es">
@@ -749,143 +746,173 @@ def panel():
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{NEGOCIO_NOMBRE} — Panel</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *{{margin:0;padding:0;box-sizing:border-box}}
-    body{{font-family:'Inter',sans-serif;background:#FDF8F2;min-height:100vh}}
-    .topbar{{background:linear-gradient(135deg,{c1},{c2});padding:20px 32px;display:flex;justify-content:space-between;align-items:center}}
-    .topbar-left{{display:flex;align-items:center;gap:12px}}
-    .topbar h1{{color:white;font-size:20px;font-weight:700}}
-    .topbar span{{color:rgba(255,255,255,0.85);font-size:13px}}
-    .container{{padding:28px 32px;max-width:1100px;margin:0 auto}}
-    .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:28px}}
-    .stat{{background:white;border-radius:16px;padding:20px 24px;box-shadow:0 2px 12px rgba(139,38,53,0.07);border-top:3px solid {c2}}}
-    .stat-icon{{font-size:26px;margin-bottom:8px}}
-    .stat-val{{font-size:32px;font-weight:700;color:{c1};line-height:1}}
-    .stat-label{{font-size:13px;color:#9A7D5A;margin-top:6px}}
-    .stat-sub{{font-size:12px;color:#C0A888;margin-top:3px}}
-    .section-title{{font-size:14px;font-weight:600;color:#3A1A0A;margin-bottom:14px}}
-    .card{{background:white;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(139,38,53,0.07);margin-bottom:24px}}
-    .empty{{text-align:center;padding:32px;color:#C0A888;font-size:14px}}
+    body{{font-family:'Plus Jakarta Sans',sans-serif;background:#FAFAF7;min-height:100vh;color:#0D0D0D}}
+    /* ── Topbar ── */
+    .topbar{{background:#0D0D0D;padding:18px 32px;display:flex;justify-content:space-between;align-items:center}}
+    .topbar-brand{{display:flex;align-items:center;gap:10px}}
+    .topbar-brand span{{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;color:#fff;letter-spacing:-0.3px}}
+    .topbar-date{{font-size:13px;color:rgba(255,255,255,0.45);font-family:'Plus Jakarta Sans',sans-serif}}
+    .topbar-logout{{font-size:12px;color:rgba(255,255,255,0.45);text-decoration:none;padding:6px 14px;border:1px solid rgba(255,255,255,0.12);border-radius:8px;transition:all 0.15s}}
+    .topbar-logout:hover{{color:#fff;border-color:rgba(255,255,255,0.35)}}
+    /* ── Layout ── */
+    .container{{padding:32px;max-width:1140px;margin:0 auto}}
+    /* ── Stat cards ── */
+    .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}}
+    .stat{{background:#fff;border:1px solid rgba(13,13,13,0.07);border-radius:20px;padding:24px;box-shadow:0 1px 4px rgba(13,13,13,0.04)}}
+    .stat-icon{{font-size:22px;margin-bottom:12px}}
+    .stat-val{{font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:700;color:#0D0D0D;line-height:1;letter-spacing:-1px}}
+    .stat-val-sm{{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:#0D0D0D;line-height:1.2;letter-spacing:-0.5px;word-break:break-word}}
+    .stat-label{{font-size:13px;color:#6B6B6B;margin-top:8px;font-weight:500}}
+    .stat-sub{{font-size:12px;color:#A3A3A3;margin-top:3px}}
+    .stat-accent{{border-left:3px solid #5B5BF6}}
+    .stat-accent-green{{border-left:3px solid #22C55E}}
+    /* ── Generic card ── */
+    .card{{background:#fff;border:1px solid rgba(13,13,13,0.07);border-radius:20px;padding:24px;box-shadow:0 1px 4px rgba(13,13,13,0.04);margin-bottom:24px}}
+    .card-title{{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:#0D0D0D;margin-bottom:16px;letter-spacing:-0.2px}}
+    /* ── Today cards ── */
+    .today-item{{background:#FAFAF7;border:1px solid rgba(13,13,13,0.07);border-radius:12px;padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}}
+    .today-name{{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:#0D0D0D}}
+    .today-service{{font-size:12px;color:#6B6B6B;margin-top:2px}}
+    .today-time{{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;color:#5B5BF6;background:rgba(91,91,246,0.08);padding:6px 12px;border-radius:8px;white-space:nowrap}}
+    /* ── Table ── */
+    .empty{{text-align:center;padding:40px;color:#A3A3A3;font-size:14px}}
     table{{width:100%;border-collapse:collapse}}
-    th{{text-align:left;font-size:11px;font-weight:700;color:#9A7D5A;text-transform:uppercase;letter-spacing:0.06em;padding:0 16px 12px}}
-    td{{padding:14px 16px;font-size:14px;color:#3A1A0A;border-top:1px solid #FDF0E4}}
-    tr:hover td{{background:#FDFAF6}}
-    .badge{{font-size:11px;padding:4px 10px;border-radius:20px;font-weight:600;display:inline-block}}
-    .badge-web{{background:#FFF0E8;color:{c1}}}
-    .badge-wp{{background:#F0FDF4;color:#16A34A}}
-    .badge-confirmed{{background:#FFF0E8;color:{c1}}}
-    .today-card{{background:linear-gradient(135deg,{c1},{c2});border-radius:16px;padding:24px;margin-bottom:24px;color:white}}
-    .today-card h2{{font-size:15px;font-weight:600;opacity:0.9;margin-bottom:16px}}
-    .today-item{{background:rgba(255,255,255,0.15);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}}
-    .today-name{{font-size:14px;font-weight:600}}
-    .today-service{{font-size:12px;opacity:0.8;margin-top:2px}}
-    .today-time{{font-size:15px;font-weight:700;background:rgba(255,255,255,0.2);padding:6px 12px;border-radius:8px;white-space:nowrap}}
-    .search-bar{{width:100%;padding:10px 16px;border:1.5px solid #E8DACC;border-radius:10px;font-size:14px;outline:none;margin-bottom:16px;transition:border 0.2s;font-family:'Inter',sans-serif}}
-    .search-bar:focus{{border-color:{c1};box-shadow:0 0 0 3px rgba(139,38,53,0.08)}}
+    th{{text-align:left;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;color:#A3A3A3;text-transform:uppercase;letter-spacing:0.07em;padding:0 16px 12px}}
+    td{{padding:14px 16px;font-size:14px;color:#0D0D0D;border-top:1px solid rgba(13,13,13,0.05)}}
+    tr:hover td{{background:#FAFAF7}}
+    .badge{{font-size:11px;padding:4px 10px;border-radius:20px;font-weight:600;display:inline-block;font-family:'Space Grotesk',sans-serif}}
+    .badge-web{{background:rgba(91,91,246,0.1);color:#5B5BF6}}
+    .badge-wp{{background:rgba(34,197,94,0.1);color:#16A34A}}
+    .badge-sms{{background:rgba(249,115,22,0.1);color:#EA580C}}
+    .badge-confirmed{{background:rgba(91,91,246,0.1);color:#5B5BF6}}
+    /* ── Search & filters ── */
+    .search-bar{{width:100%;padding:10px 16px;border:1.5px solid rgba(13,13,13,0.1);border-radius:10px;font-size:14px;outline:none;margin-bottom:14px;transition:border 0.2s;font-family:'Plus Jakarta Sans',sans-serif;background:#FAFAF7}}
+    .search-bar:focus{{border-color:#5B5BF6;box-shadow:0 0 0 3px rgba(91,91,246,0.08);background:#fff}}
     .filters{{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}}
-    .filter-btn{{padding:6px 14px;border-radius:20px;border:1.5px solid #E8DACC;background:white;font-size:12px;cursor:pointer;transition:all 0.15s;color:#9A7D5A;font-family:'Inter',sans-serif}}
-    .filter-btn.active{{background:{c1};color:white;border-color:{c1}}}
-    .refresh{{font-size:12px;padding:8px 16px;border-radius:8px;border:1.5px solid #E8DACC;background:white;cursor:pointer;color:#9A7D5A;float:right;font-family:'Inter',sans-serif}}
-    .refresh:hover{{background:#FDF8F2}}
-    @media(max-width:600px){{.container{{padding:16px}}.topbar{{padding:16px}}th,td{{padding:10px 8px}}}}
+    .filter-btn{{padding:6px 14px;border-radius:20px;border:1.5px solid rgba(13,13,13,0.1);background:#fff;font-size:12px;cursor:pointer;transition:all 0.15s;color:#6B6B6B;font-family:'Plus Jakarta Sans',sans-serif;font-weight:500}}
+    .filter-btn.active{{background:#5B5BF6;color:#fff;border-color:#5B5BF6}}
+    .filter-btn:hover:not(.active){{border-color:#5B5BF6;color:#5B5BF6}}
+    .refresh-btn{{font-size:12px;padding:8px 14px;border-radius:8px;border:1.5px solid rgba(13,13,13,0.1);background:#fff;cursor:pointer;color:#6B6B6B;font-family:'Plus Jakarta Sans',sans-serif;font-weight:500;float:right;transition:all 0.15s}}
+    .refresh-btn:hover{{border-color:#5B5BF6;color:#5B5BF6}}
+    /* ── Section label ── */
+    .section-label{{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;color:#A3A3A3;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:16px}}
+    /* ── Monthly report ── */
+    .report-num{{font-family:'Space Grotesk',sans-serif;font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1}}
+    .report-green{{color:#16A34A}}
+    .report-purple{{color:#5B5BF6}}
+    /* ── Responsive ── */
+    @media(max-width:640px){{
+      .container{{padding:16px}}
+      .topbar{{padding:14px 16px}}
+      .stat-val{{font-size:28px}}
+      th,td{{padding:10px 8px;font-size:13px}}
+    }}
   </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div class="topbar-left">
-    <span style="font-size:28px">{NEGOCIO_EMOJI}</span>
-    <h1>{NEGOCIO_NOMBRE}</h1>
+  <div class="topbar-brand">
+    <span>{NEGOCIO_EMOJI} {NEGOCIO_NOMBRE}</span>
   </div>
-  <span>Hoy: {datetime.now().strftime("%d/%m/%Y")}</span>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span class="topbar-date">{datetime.now(_EASTERN).strftime("%d/%m/%Y")}</span>
+    <a href="/panel/logout" class="topbar-logout">Salir</a>
+  </div>
 </div>
 
 <div class="container">
 
+  <!-- ── Stat cards ── -->
   <div class="stats">
-    <div class="stat">
+    <div class="stat stat-accent">
       <div class="stat-icon">📆</div>
       <div class="stat-val">{len(hoy_lista)}</div>
       <div class="stat-label">Reservas hoy</div>
-      <div class="stat-sub">{datetime.now().strftime("%A %d de %B")}</div>
+      <div class="stat-sub">{datetime.now(_EASTERN).strftime("%A %d de %B")}</div>
     </div>
-    <div class="stat">
+    <div class="stat stat-accent">
       <div class="stat-icon">📋</div>
       <div class="stat-val">{len(todas)}</div>
       <div class="stat-label">Total reservaciones</div>
-      <div class="stat-sub">Todas las mesas</div>
+      <div class="stat-sub">Histórico completo</div>
     </div>
-    <div class="stat">
+    <div class="stat stat-accent">
       <div class="stat-icon">🌐</div>
       <div class="stat-val">{web_count}</div>
       <div class="stat-label">Vía formulario web</div>
       <div class="stat-sub">{round(web_count/len(todas)*100) if todas else 0}% del total</div>
     </div>
-    <div class="stat">
+    <div class="stat stat-accent">
       <div class="stat-icon">📱</div>
       <div class="stat-val">{wp_count}</div>
-      <div class="stat-label">Vía WhatsApp</div>
+      <div class="stat-label">Vía WhatsApp / SMS</div>
       <div class="stat-sub">{round(wp_count/len(todas)*100) if todas else 0}% del total</div>
     </div>
   </div>
 
-  <!-- ── Analytics Section ─────────────────────────────── -->
-  <div class="card" style="margin-bottom:24px">
-    <div class="section-title">📊 Reservaciones — últimos 7 días</div>
-    <div style="position:relative;height:200px;margin-top:14px">
+  <!-- ── 7-day chart ── -->
+  <div class="card">
+    <div class="card-title">Reservaciones — últimos 7 días</div>
+    <div style="position:relative;height:200px;margin-top:8px">
       <canvas id="barChart"></canvas>
     </div>
   </div>
 
+  <!-- ── Analytics mini-cards ── -->
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
-    <div class="stat" style="border-top-color:#7C3AED">
+    <div class="stat stat-accent">
       <div class="stat-icon">🏆</div>
-      <div class="stat-val" style="font-size:18px;line-height:1.4;word-break:break-word">{top_serv}</div>
+      <div class="stat-val-sm">{top_serv}</div>
       <div class="stat-label">Servicio más solicitado</div>
       <div class="stat-sub">{top_serv_n} reservación(es)</div>
     </div>
-    <div class="stat" style="border-top-color:#7C3AED">
+    <div class="stat stat-accent">
       <div class="stat-icon">{top_canal_emoji}</div>
-      <div class="stat-val">{top_canal_label}</div>
+      <div class="stat-val-sm">{top_canal_label}</div>
       <div class="stat-label">Canal más usado</div>
       <div class="stat-sub">{top_canal_n} reservación(es)</div>
     </div>
-    <div class="stat" style="border-top-color:#7C3AED">
+    <div class="stat stat-accent">
       <div class="stat-icon">⏰</div>
-      <div class="stat-val" style="font-size:24px">{peak_hora}</div>
+      <div class="stat-val-sm">{peak_hora}</div>
       <div class="stat-label">Hora pico</div>
       <div class="stat-sub">{peak_hora_n} reservación(es)</div>
     </div>
   </div>
 
-  <!-- ── Reporte Mensual ───────────────────────────────── -->
-  <div class="card" style="margin-bottom:24px;border-top:3px solid #16A34A">
-    <div class="section-title">💰 Reporte mensual — {mes_label}</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:16px">
+  <!-- ── Monthly report ── -->
+  <div class="card stat-accent-green">
+    <div class="card-title">Reporte mensual — {mes_label}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:24px;margin-top:8px;align-items:center">
       <div>
-        <div style="font-size:11px;font-weight:700;color:#9A7D5A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Reservas del mes</div>
-        <div style="font-size:36px;font-weight:700;color:{c1};line-height:1">{total_mes}</div>
-        <div style="font-size:12px;color:#9A7D5A;margin-top:4px">reservaciones confirmadas</div>
+        <div class="section-label">Reservas del mes</div>
+        <div class="report-num report-purple">{total_mes}</div>
+        <div class="stat-sub" style="margin-top:6px">reservaciones confirmadas</div>
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:#9A7D5A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Monto a cobrar</div>
-        <div style="font-size:36px;font-weight:700;color:#16A34A;line-height:1">${monto_mes}</div>
-        <div style="font-size:12px;color:#9A7D5A;margin-top:4px">{total_mes} × $8 por reservación</div>
+        <div class="section-label">Monto a cobrar</div>
+        <div class="report-num report-green">${monto_mes}</div>
+        <div class="stat-sub" style="margin-top:6px">{total_mes} × $8 por reservación</div>
       </div>
-      <div style="display:flex;align-items:center">
+      <div>
         <a href="/api/reporte-mensual" target="_blank"
-           style="display:inline-block;padding:10px 18px;background:#16A34A;color:white;
-                  border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">
+           style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;
+                  background:#5B5BF6;color:#fff;border-radius:10px;text-decoration:none;
+                  font-size:13px;font-weight:600;font-family:'Space Grotesk',sans-serif">
           📥 Descargar JSON
         </a>
       </div>
     </div>
   </div>
 
-  <div class="today-card">
-    <h2>⏰ Reservas de hoy</h2>
+  <!-- ── Today's bookings ── -->
+  <div class="card">
+    <div class="card-title">Reservas de hoy</div>
     {"".join(f'''
     <div class="today-item">
       <div>
@@ -893,14 +920,15 @@ def panel():
         <div class="today-service">{r.get("servicio","")}</div>
       </div>
       <div class="today-time">{r.get("hora","")}</div>
-    </div>''' for r in sorted(hoy_lista, key=lambda x: x.get("hora",""))) if hoy_lista else '<div style="opacity:0.7;text-align:center;padding:16px">No hay reservas para hoy</div>'}
+    </div>''' for r in sorted(hoy_lista, key=lambda x: x.get("hora",""))) if hoy_lista else '<div style="color:#A3A3A3;font-size:14px;padding:16px 0">No hay reservas para hoy.</div>'}
   </div>
 
+  <!-- ── All bookings table ── -->
   <div class="card">
-    <button class="refresh" onclick="location.reload()">🔄 Actualizar</button>
-    <div class="section-title">📋 Todas las reservaciones</div>
+    <button class="refresh-btn" onclick="location.reload()">↺ Actualizar</button>
+    <div class="card-title">Todas las reservaciones</div>
 
-    <input class="search-bar" type="text" id="search" placeholder="🔍 Buscar por nombre, plato, fecha..." onkeyup="filtrar()">
+    <input class="search-bar" type="text" id="search" placeholder="Buscar por nombre, servicio, fecha..." onkeyup="filtrar()">
 
     <div class="filters">
       <button class="filter-btn active" onclick="setFiltro('todos',this)">Todos</button>
@@ -909,18 +937,18 @@ def panel():
       <button class="filter-btn" onclick="setFiltro('whatsapp',this)">WhatsApp</button>
     </div>
 
-    {"<table><tr><th>Nombre</th><th>Pedido</th><th>Fecha</th><th>Hora</th><th>Canal</th><th>Teléfono</th><th>Estado</th></tr>" +
+    {"<table><thead><tr><th>Nombre</th><th>Servicio</th><th>Fecha</th><th>Hora</th><th>Canal</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>" +
     "".join(f'''
     <tr class="fila" data-canal="{r.get("canal","web")}" data-fecha="{r.get("fecha","")}">
-      <td><strong>{r.get("nombre","")}</strong><br><span style="font-size:12px;color:#C0A888">{r.get("email","")}</span></td>
+      <td><strong>{r.get("nombre","")}</strong><br><span style="font-size:12px;color:#A3A3A3">{r.get("email","")}</span></td>
       <td>{r.get("servicio","")}</td>
       <td>{r.get("fecha","")}</td>
-      <td><strong>{r.get("hora","")}</strong></td>
-      <td><span class="badge {'badge-wp' if r.get('canal')=='whatsapp' else 'badge-web'}">{r.get("canal","web")}</span></td>
-      <td>{r.get("telefono","—")}</td>
+      <td><strong style="font-family:\'Space Grotesk\',sans-serif">{r.get("hora","")}</strong></td>
+      <td><span class="badge {'badge-wp' if r.get('canal')=='whatsapp' else ('badge-sms' if r.get('canal')=='sms' else 'badge-web')}">{r.get("canal","web")}</span></td>
+      <td style="font-family:\'Space Grotesk\',sans-serif">{r.get("telefono","—")}</td>
       <td><span class="badge badge-confirmed">Confirmada</span></td>
     </tr>''' for r in todas) +
-    "</table>" if todas else f'<div class="empty">{NEGOCIO_EMOJI} No hay reservaciones aún</div>'}
+    "</tbody></table>" if todas else f'<div class="empty">{NEGOCIO_EMOJI} No hay reservaciones aún.</div>'}
   </div>
 
 </div>
@@ -933,13 +961,13 @@ def panel():
     document.querySelectorAll('.fila').forEach(fila => {{
       const match = fila.textContent.toLowerCase().includes(texto);
       const matchFiltro =
-        filtroActual==='todos'  ? true :
-        filtroActual==='hoy'    ? fila.dataset.fecha===hoy :
-        fila.dataset.canal===filtroActual;
+        filtroActual === 'todos'     ? true :
+        filtroActual === 'hoy'       ? fila.dataset.fecha === hoy :
+        fila.dataset.canal === filtroActual;
       fila.style.display = match && matchFiltro ? '' : 'none';
     }});
   }}
-  function setFiltro(f,btn) {{
+  function setFiltro(f, btn) {{
     filtroActual = f;
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -958,10 +986,10 @@ def panel():
         datasets: [{{
           label: 'Reservaciones',
           data: {chart_data_js},
-          backgroundColor: 'rgba(92,61,143,0.75)',
-          borderColor: '#5C3D8F',
+          backgroundColor: 'rgba(91,91,246,0.15)',
+          borderColor: '#5B5BF6',
           borderWidth: 2,
-          borderRadius: 6,
+          borderRadius: 8,
           borderSkipped: false
         }}]
       }},
@@ -972,11 +1000,11 @@ def panel():
         scales: {{
           y: {{
             beginAtZero: true,
-            ticks: {{ stepSize: 1, color: '#9d8ec4' }},
-            grid:  {{ color: 'rgba(92,61,143,0.1)' }}
+            ticks: {{ stepSize: 1, color: '#A3A3A3', font: {{ family: 'Plus Jakarta Sans' }} }},
+            grid:  {{ color: 'rgba(13,13,13,0.05)' }}
           }},
           x: {{
-            ticks: {{ color: '#9d8ec4' }},
+            ticks: {{ color: '#A3A3A3', font: {{ family: 'Plus Jakarta Sans' }} }},
             grid:  {{ display: false }}
           }}
         }}
@@ -984,6 +1012,7 @@ def panel():
     }});
   }})();
 </script>
+
 </body>
 </html>
 """
