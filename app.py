@@ -23,7 +23,7 @@ from cliente_config import (
     GOOGLE_MAPS_REVIEW_URL,
 )
 import json, os, threading
-from datetime import datetime
+from datetime import datetime, timedelta
 import stripe
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 from reportlab.lib.pagesizes import letter
