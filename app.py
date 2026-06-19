@@ -180,6 +180,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "drivft-dev-secret-2026")
 
 ARCHIVO          = "reservaciones.json"
 CLIENTES_ARCHIVO = "clientes.json"
+_reservaciones_lock = threading.Lock()  # guards all read-modify-write on reservaciones.json
 
 
 def _programar_reporte_mensual():
@@ -446,9 +447,11 @@ def reservar():
     datos["creada"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     datos["canal"]  = "web"
 
-    reservaciones = cargar()
-    reservaciones.append(datos)
-    guardar(reservaciones)
+    with _reservaciones_lock:
+        reservaciones = cargar()
+        reservaciones.append(datos)
+        guardar(reservaciones)
+        print(f"[/reservar] Guardadas {len(reservaciones)} reservaciones en disco.")
 
     # ── Notificación instantánea al dueño ───────────────────────
     notificar_dueno(datos["nombre"], datos["fecha"], datos["hora"], datos["servicio"], "web")
@@ -570,9 +573,11 @@ def _save_booking(nombre, fecha, hora, servicio, telefono, canal):
         "creada":   datetime.now().strftime("%Y-%m-%d %H:%M"),
         "canal":    canal,
     }
-    reservaciones = cargar()
-    reservaciones.append(nueva)
-    guardar(reservaciones)
+    with _reservaciones_lock:
+        reservaciones = cargar()
+        reservaciones.append(nueva)
+        guardar(reservaciones)
+        print(f"[_save_booking] Guardadas {len(reservaciones)} reservaciones en disco. Última: {nueva}")
     notificar_dueno(nombre, fecha, hora, servicio, canal)
     if canal == "whatsapp":
         mandar_whatsapp(telefono, nombre, fecha, hora, servicio)
