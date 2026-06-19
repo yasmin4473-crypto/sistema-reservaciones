@@ -610,7 +610,7 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
             f"Tomorrow's date is {(_now + timedelta(days=1)).strftime('%Y-%m-%d')}."
         )
         system = _BOOKING_SYSTEM_PROMPT.replace("{DATE_CONTEXT}", date_ctx)
-        print(f"[AI Booking] FULL SYSTEM PROMPT (greeting path):\n{system}\n---END PROMPT---")
+        print("=== SYSTEM PROMPT ===\n" + system + "\n=== END ===")
         reply = _call_openrouter([
             {"role": "system", "content": system},
             {"role": "user",   "content": mensaje},
@@ -631,7 +631,7 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
         f"Tomorrow's date is {(_now + timedelta(days=1)).strftime('%Y-%m-%d')}."
     )
     system = _BOOKING_SYSTEM_PROMPT.replace("{DATE_CONTEXT}", date_ctx)
-    print(f"[AI Booking] FULL SYSTEM PROMPT:\n{system}\n---END PROMPT---")
+    print("=== SYSTEM PROMPT ===\n" + system + "\n=== END ===")
 
     # Append user message and call AI
     history.append({"role": "user", "content": mensaje})
