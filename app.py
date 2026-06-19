@@ -943,9 +943,9 @@ def panel():
       <td><strong>{r.get("nombre","")}</strong><br><span style="font-size:12px;color:#A3A3A3">{r.get("email","")}</span></td>
       <td>{r.get("servicio","")}</td>
       <td>{r.get("fecha","")}</td>
-      <td><strong style="font-family:\'Space Grotesk\',sans-serif">{r.get("hora","")}</strong></td>
+      <td><strong style="font-family:'Space Grotesk',sans-serif">{r.get("hora","")}</strong></td>
       <td><span class="badge {'badge-wp' if r.get('canal')=='whatsapp' else ('badge-sms' if r.get('canal')=='sms' else 'badge-web')}">{r.get("canal","web")}</span></td>
-      <td style="font-family:\'Space Grotesk\',sans-serif">{r.get("telefono","—")}</td>
+      <td style="font-family:'Space Grotesk',sans-serif">{r.get("telefono","—")}</td>
       <td><span class="badge badge-confirmed">Confirmada</span></td>
     </tr>''' for r in todas) +
     "</tbody></table>" if todas else f'<div class="empty">{NEGOCIO_EMOJI} No hay reservaciones aún.</div>'}
