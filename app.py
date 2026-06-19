@@ -625,7 +625,7 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
     history = state["history"]
 
     # Build system prompt with today's date
-    _now = datetime.now()
+    _now = datetime.now(_EASTERN)
     date_ctx = (
         f"Today's date is {_now.strftime('%Y-%m-%d')} ({_now.strftime('%A')}). "
         f"Tomorrow's date is {(_now + timedelta(days=1)).strftime('%Y-%m-%d')}."
