@@ -599,28 +599,9 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
     Natural-language booking via AI. Maintains per-number conversation state.
     Returns the text to send back to the user.
     """
-    mensaje_lower = mensaje.lower().strip()
-
-    # ── Simple greetings → pass through to AI directly (no state needed) ──
-    greetings = {"hola", "hi", "hello", "hey", "menu", "menú", "info", "precio", "precios"}
-    if mensaje_lower in greetings:
-        _now = datetime.now(_EASTERN)
-        date_ctx = (
-            f"Today's date is {_now.strftime('%Y-%m-%d')} ({_now.strftime('%A')}). "
-            f"Tomorrow's date is {(_now + timedelta(days=1)).strftime('%Y-%m-%d')}."
-        )
-        system = _BOOKING_SYSTEM_PROMPT.replace("{DATE_CONTEXT}", date_ctx)
-        print("=== SYSTEM PROMPT ===\n" + system + "\n=== END ===")
-        reply = _call_openrouter([
-            {"role": "system", "content": system},
-            {"role": "user",   "content": mensaje},
-        ])
-        return reply or (
-            f"{NEGOCIO_EMOJI} ¡Hola! Soy el asistente de {NEGOCIO_NOMBRE}. "
-            f"¿En qué te puedo ayudar? Puedo agendar una cita para ti."
-        )
-
     # ── Retrieve or init conversation history for this number ──
+    # NOTE: All messages — including greetings — go through the history-aware path
+    # so that the AI always has full context (language, prior turns) on every call.
     state = _booking_state.setdefault(numero, {"history": []})
     history = state["history"]
 
@@ -640,7 +621,10 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
     reply = _call_openrouter(messages)
 
     if not reply:
-        return "Lo siento, hubo un problema. Intenta de nuevo en un momento."
+        return (
+            f"{NEGOCIO_EMOJI} ¡Hola! Soy el asistente de {NEGOCIO_NOMBRE}. "
+            f"¿En qué te puedo ayudar? Puedo agendar una cita para ti."
+        )
 
     # ── Check if AI returned a finalized booking JSON ──
     if reply.startswith("BOOKING_JSON:"):
