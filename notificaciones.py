@@ -168,10 +168,11 @@ def mandar_whatsapp(destinatario, nombre, fecha, hora, servicio):
         return False
 
 
-def mandar_sms_confirmacion(destinatario, nombre, fecha, hora, servicio):
+def mandar_sms_confirmacion(destinatario, nombre, fecha, hora, servicio, idioma="es"):
     """
     Envia SMS de confirmacion inmediata al cliente via Twilio (SMS regular, no WhatsApp).
     Se llama desde app.py justo despues de guardar la reservacion.
+    idioma: 'es' (default) or 'en' — controls the language of the SMS body.
     """
     if not all([TWILIO_SID, TWILIO_TOKEN, TWILIO_SMS_NUM]):
         print("[SMS Confirmacion] Credenciales Twilio no configuradas (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)")
@@ -181,18 +182,26 @@ def mandar_sms_confirmacion(destinatario, nombre, fecha, hora, servicio):
         num = destinatario.strip().replace(" ", "").replace("-", "")
         if not num.startswith("+"):
             num = "+" + num
-        body = (
-            f"Drivft: ¡Hola {nombre}! Tu cita para {servicio} está confirmada "
-            f"para el {fecha} a las {hora}. "
-            "Te mandaremos un recordatorio mañana. "
-            "Reply STOP to unsubscribe."
-        )
+        if idioma == "en":
+            body = (
+                f"Hi {nombre}! Your {servicio} appointment is confirmed "
+                f"for {fecha} at {hora}. "
+                "We'll send you a reminder tomorrow. "
+                "Reply STOP to unsubscribe."
+            )
+        else:
+            body = (
+                f"Drivft: ¡Hola {nombre}! Tu cita para {servicio} está confirmada "
+                f"para el {fecha} a las {hora}. "
+                "Te mandaremos un recordatorio mañana. "
+                "Reply STOP to unsubscribe."
+            )
         client.messages.create(
             body=body,
             from_=TWILIO_SMS_NUM,
             to=num,
         )
-        print(f"[SMS Confirmacion] Enviado a {destinatario}")
+        print(f"[SMS Confirmacion] Enviado a {destinatario} (idioma={idioma})")
         return True
     except Exception as e:
         print(f"[SMS Confirmacion] Error: {e}")

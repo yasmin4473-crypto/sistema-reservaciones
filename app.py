@@ -530,7 +530,30 @@ Rules:
 - If the user says something off-topic, answer briefly then bring them back to booking.
 - Keep replies concise (under 280 chars for SMS friendliness).
 - For greetings like "hola" or "hi", give a warm welcome and ask how you can help.
+- SERVICE NAMES: When referring to services in conversation and in BOOKING_JSON, translate or describe them naturally in the user's language. Do NOT repeat the raw Spanish service name to an English-speaking user (e.g. "Bot de WhatsApp" → "WhatsApp Bot", "Pagina Web Profesional" → "Professional Website", "Sistema de Reservaciones" → "Booking System", "Chatbot con IA" → "AI Chatbot").
 """
+
+
+def _detect_lang(text: str):
+    """
+    Heuristic language detector for booking conversations.
+    Returns 'en', 'es', or None if the signal is too weak to decide.
+    """
+    es_chars = sum(1 for c in text if c in "áéíóúñÁÉÍÓÚÑ¿¡")
+    words = set(text.lower().split())
+    _es = {"hola", "cita", "quiero", "necesito", "para", "una", "reserva",
+           "gracias", "buenos", "buenas", "servicio", "mañana", "fecha",
+           "hora", "nombre", "también", "cómo", "tengo", "quisiera", "bueno"}
+    _en = {"hello", "hi", "hey", "want", "need", "book", "appointment",
+           "schedule", "please", "thanks", "thank", "tomorrow", "yes",
+           "the", "my", "would", "like", "when", "what", "how", "i", "can"}
+    score_es = es_chars * 2 + len(words & _es)
+    score_en = len(words & _en)
+    if score_es > score_en:
+        return "es"
+    if score_en > score_es:
+        return "en"
+    return None
 
 def _call_openrouter(messages: list) -> str:
     """Call OpenRouter and return the assistant reply text, or '' on failure."""
@@ -562,7 +585,7 @@ def _call_openrouter(messages: list) -> str:
         return ""
 
 
-def _save_booking(nombre, fecha, hora, servicio, telefono, canal):
+def _save_booking(nombre, fecha, hora, servicio, telefono, canal, idioma="es"):
     """Persist booking and trigger all notifications. Returns the saved record."""
     nueva = {
         "id":       datetime.now().strftime("%Y%m%d%H%M%S"),
@@ -585,7 +608,7 @@ def _save_booking(nombre, fecha, hora, servicio, telefono, canal):
     if canal == "whatsapp":
         mandar_whatsapp(telefono, nombre, fecha, hora, servicio)
     else:
-        mandar_sms_confirmacion(telefono, nombre, fecha, hora, servicio)
+        mandar_sms_confirmacion(telefono, nombre, fecha, hora, servicio, idioma)
     t = threading.Timer(86400, mandar_sms_recordatorio,
                         args=[telefono, nombre, fecha, hora, servicio])
     t.daemon = True
@@ -605,6 +628,13 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
     state = _booking_state.setdefault(numero, {"history": []})
     history = state["history"]
 
+    # Detect and persist conversation language — first clear signal wins.
+    # Subsequent ambiguous messages (like "sí", "yes") don't override.
+    if "idioma" not in state:
+        detected = _detect_lang(mensaje)
+        if detected:
+            state["idioma"] = detected
+
     # Build system prompt with today's date
     _now = datetime.now(_EASTERN)
     date_ctx = (
@@ -621,6 +651,11 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
     reply = _call_openrouter(messages)
 
     if not reply:
+        if state.get("idioma") == "en":
+            return (
+                f"{NEGOCIO_EMOJI} Hi! I'm the assistant for {NEGOCIO_NOMBRE}. "
+                f"How can I help you? I can book an appointment for you."
+            )
         return (
             f"{NEGOCIO_EMOJI} ¡Hola! Soy el asistente de {NEGOCIO_NOMBRE}. "
             f"¿En qué te puedo ayudar? Puedo agendar una cita para ti."
@@ -631,6 +666,7 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
         try:
             raw = reply[len("BOOKING_JSON:"):].strip()
             data = json.loads(raw)
+            _idioma = state.get("idioma", "es")
             _save_booking(
                 nombre   = data.get("nombre", "Cliente"),
                 fecha    = data["fecha"],
@@ -638,9 +674,17 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
                 servicio = data["servicio"],
                 telefono = numero,
                 canal    = canal,
+                idioma   = _idioma,
             )
             # Reset state after successful booking
             _booking_state.pop(numero, None)
+            if _idioma == "en":
+                return (
+                    f"✅ Booking confirmed, {data.get('nombre', '')}!\n"
+                    f"📅 {data['fecha']} at {data['hora']}\n"
+                    f"💆 {data['servicio']}\n\n"
+                    f"We'll see you at {NEGOCIO_NOMBRE}. You'll get a reminder tomorrow."
+                )
             return (
                 f"✅ ¡Reservación confirmada, {data.get('nombre', '')}!\n"
                 f"📅 {data['fecha']} a las {data['hora']}\n"
@@ -650,6 +694,8 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
         except Exception as e:
             print(f"[AI Booking] Error parsing booking JSON: {e} — raw: {reply}")
             _booking_state.pop(numero, None)
+            if state.get("idioma") == "en":
+                return "There was an error saving your appointment. Please try again."
             return "Hubo un error al guardar tu cita. Por favor intenta de nuevo."
 
     # ── Normal conversational reply — store assistant turn in history ──
