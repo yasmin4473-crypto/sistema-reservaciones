@@ -260,6 +260,113 @@ def notificar_dueno(nombre_cliente, fecha, hora, servicio, canal):
         return False
 
 
+def notificar_pago_recibido(telefono_cliente, canal, metodo="", monto="", remitente="",
+                            fecha="", referencia="", image_url="",
+                            legible=True, error="", recibido=""):
+    """
+    Avisa al dueno cuando un cliente envia un comprobante de pago por
+    WhatsApp/SMS. Es solo informativo: los datos los extrae una IA y el dueno
+    debe verificar el pago manualmente. Nada se confirma automaticamente.
+    """
+    destinatario = os.environ.get("GMAIL_USER") or NEGOCIO_EMAIL
+    if not destinatario:
+        print("[Pago] No hay email de destino configurado (GMAIL_USER / NEGOCIO_EMAIL)")
+        return False
+
+    canal_emoji = "📱 WhatsApp" if canal == "whatsapp" else "💬 SMS"
+
+    if error:
+        aviso_estado = f"""
+        <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+          <p style="margin:0;font-size:13px;color:#B91C1C;line-height:1.6;">
+            ⚠️ <strong>Needs manual review — image processing failed.</strong><br>
+            No se pudo analizar la imagen automaticamente ({error}).
+            Abre la imagen con el boton de abajo y revisala manualmente.
+          </p>
+        </div>"""
+    elif not legible:
+        aviso_estado = """
+        <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+          <p style="margin:0;font-size:13px;color:#C2610C;line-height:1.6;">
+            ⚠️ La IA no pudo leer la imagen con claridad. Se le pidio al cliente una
+            captura mas clara. Revisa la imagen original con el boton de abajo.
+          </p>
+        </div>"""
+    else:
+        aviso_estado = ""
+
+    if image_url:
+        boton_imagen = f"""
+        <div style="text-align:center;margin-bottom:22px;">
+          <a href="{image_url}" target="_blank"
+             style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#3D2560,#5C3D8F);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;box-shadow:0 4px 12px rgba(61,37,96,0.35);">
+            🖼️ Ver imagen del comprobante
+          </a>
+        </div>"""
+    else:
+        boton_imagen = """
+        <p style="text-align:center;font-size:13px;color:#999;margin-bottom:22px;">
+          (No se recibio URL de la imagen)
+        </p>"""
+
+    def _fila(label, valor, alt):
+        bg = ' style="background:#f3eeff;"' if alt else ""
+        return (f'<tr{bg}><td style="padding:10px 14px;font-weight:600;color:#5C3D8F;width:40%;">{label}</td>'
+                f'<td style="padding:10px 14px;color:#333;">{valor or "—"}</td></tr>')
+
+    campos = [
+        ("Telefono cliente", telefono_cliente),
+        ("Canal",            canal_emoji),
+        ("Metodo de pago",   metodo),
+        ("Monto",            monto),
+        ("Remitente",        remitente),
+        ("Fecha transaccion", fecha),
+        ("Referencia",       referencia),
+        ("Recibido",         recibido),
+    ]
+    filas = "".join(_fila(l, v, i % 2 == 0) for i, (l, v) in enumerate(campos))
+
+    html = f"""
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;background:#f9f9f9;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10);">
+      <div style="background:linear-gradient(135deg,#3D2560,#5C3D8F);padding:32px;text-align:center;">
+        <div style="font-size:44px;margin-bottom:8px;">💰</div>
+        <h1 style="color:#fff;font-size:20px;margin:0 0 4px;">Comprobante de Pago Recibido</h1>
+        <p style="color:rgba(255,255,255,0.80);font-size:13px;margin:0;">{NEGOCIO_NOMBRE}</p>
+      </div>
+      <div style="padding:28px 32px;">
+        {aviso_estado}
+        <p style="font-size:13px;color:#666;margin:0 0 14px;">
+          Datos extraidos automaticamente de la imagen por IA:
+        </p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+          {filas}
+        </table>
+        {boton_imagen}
+        <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:14px 18px;">
+          <p style="margin:0;font-size:13px;color:#C2610C;line-height:1.6;">
+            ⚠️ Por favor verifica manualmente que el pago fue recibido en tu cuenta
+            antes de confirmar la cita. Estos datos los extrajo una IA de la imagen
+            y NO confirman que el dinero haya llegado.
+          </p>
+        </div>
+      </div>
+    </div>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": f"{NEGOCIO_NOMBRE} <reservaciones@getdrivftllc.com>",
+            "to": destinatario,
+            "subject": "💰 Comprobante de pago recibido - Verificar",
+            "html": html,
+        })
+        print(f"[Pago] Notificacion enviada a {destinatario} (cliente {telefono_cliente}, {canal})")
+        return True
+    except Exception as e:
+        print(f"[Pago] Error enviando notificacion: {e}")
+        return False
+
+
 def mandar_solicitud_resena(destinatario, nombre, negocio_nombre, google_maps_url):
     """
     Envia solicitud de resena de Google 24h despues de la reservacion.

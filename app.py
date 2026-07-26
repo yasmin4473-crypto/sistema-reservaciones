@@ -6,7 +6,7 @@ from notificaciones import (
     mandar_email, mandar_whatsapp, mandar_solicitud_resena, notificar_dueno,
     mandar_recordatorio_sms, mandar_sms_recordatorio,
     enviar_email_con_factura, enviar_reporte_mensual,
-    mandar_sms_confirmacion,
+    mandar_sms_confirmacion, notificar_pago_recibido,
 )
 from cliente_config import (
     NEGOCIO_NOMBRE, NEGOCIO_SLOGAN, NEGOCIO_EMOJI,
@@ -22,7 +22,7 @@ from cliente_config import (
     CHATBOT_NO_ENTIENDO_ES, CHATBOT_NO_ENTIENDO_EN,
     GOOGLE_MAPS_REVIEW_URL,
 )
-import json, os, threading
+import base64, json, os, re, threading
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -708,15 +708,161 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
     return reply
 
 
+# ─── COMPROBANTES DE PAGO (imagenes por WhatsApp/SMS) ─────
+# SOLO EXTRACCION DE INFORMACION: nada de esto marca una reservacion como
+# pagada ni confirmada. Se le envia al dueno un email con los datos extraidos
+# y el debe verificar el pago manualmente en su cuenta antes de confirmar.
+
+_PAGO_VISION_PROMPT = """This image is a payment confirmation screenshot. Analyze it and extract:
+- Payment method (Zelle, bank transfer, USDT/crypto, Pago Móvil, or other - identify which)
+- Amount paid (if visible)
+- Sender name (if visible)
+- Date/time of transaction (if visible)
+- Any reference/confirmation number visible
+
+Respond ONLY in this JSON format:
+{"metodo": "...", "monto": "...", "remitente": "...", "fecha": "...", "referencia": "...", "legible": true/false}
+
+If the image is not clearly a payment screenshot or text is not readable, set "legible": false and leave other fields empty."""
+
+
+def _descargar_media_twilio(url: str):
+    """Descarga la imagen de Twilio. Devuelve (base64, content_type) o (None, None)."""
+    try:
+        with _urllib_req.urlopen(_urllib_req.Request(url), timeout=15) as resp:
+            data  = resp.read()
+            ctype = resp.headers.get("Content-Type", "image/jpeg")
+        return base64.b64encode(data).decode("ascii"), ctype
+    except Exception as e:
+        print(f"[Pago] Error descargando media de Twilio: {e}")
+        return None, None
+
+
+def _analizar_comprobante(image_url: str, content_type: str) -> dict:
+    """
+    Manda el comprobante a un modelo de vision via OpenRouter y devuelve el dict
+    parseado ({metodo, monto, remitente, fecha, referencia, legible}).
+    Lanza excepcion si algo falla, para que el caller lo marque como revision manual.
+    """
+    if not _OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY no configurada")
+
+    # Preferimos mandar la imagen en base64 (funciona aunque la URL de Twilio
+    # no sea accesible desde OpenRouter); si falla, mandamos la URL directa.
+    b64, ctype = _descargar_media_twilio(image_url)
+    if b64:
+        img_url = f"data:{ctype or content_type or 'image/jpeg'};base64,{b64}"
+    else:
+        img_url = image_url
+
+    payload = json.dumps({
+        "model": "openai/gpt-4o-mini",
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": _PAGO_VISION_PROMPT},
+                {"type": "image_url", "image_url": {"url": img_url}},
+            ],
+        }],
+        "max_tokens": 300,
+        "temperature": 0,
+    }).encode("utf-8")
+
+    req = _urllib_req.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {_OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://getdrivftllc.com",
+            "X-Title": NEGOCIO_NOMBRE,
+        },
+        method="POST",
+    )
+    with _urllib_req.urlopen(req, timeout=30) as resp:
+        result = json.loads(resp.read().decode("utf-8"))
+    reply = result["choices"][0]["message"]["content"].strip()
+
+    # El modelo a veces envuelve el JSON en bloques markdown — extraemos el objeto.
+    match = re.search(r"\{.*\}", reply, re.S)
+    if not match:
+        raise ValueError(f"respuesta sin JSON: {reply[:120]}")
+    return json.loads(match.group(0))
+
+
+def _notificar_pago_async(**kwargs):
+    """Manda el email al dueno en segundo plano para responderle rapido a Twilio."""
+    t = threading.Thread(target=notificar_pago_recibido, kwargs=kwargs, daemon=True)
+    t.start()
+
+
+def _procesar_imagen_pago(numero: str, canal: str, image_url: str, content_type: str) -> str:
+    """
+    Procesa una imagen de comprobante y devuelve la respuesta para el cliente.
+    Nunca toca _booking_state, asi que una conversacion de reserva en curso
+    para ese numero sigue exactamente donde estaba.
+    """
+    idioma   = _booking_state.get(numero, {}).get("idioma", "es")
+    recibido = datetime.now(_EASTERN).strftime("%Y-%m-%d %H:%M")
+
+    try:
+        data = _analizar_comprobante(image_url, content_type)
+    except Exception as e:
+        print(f"[Pago] Error analizando comprobante de {numero}: {e}")
+        _notificar_pago_async(
+            telefono_cliente=numero, canal=canal, image_url=image_url,
+            legible=False, error=str(e), recibido=recibido,
+        )
+        # La falla es nuestra, no del cliente — acusamos recibo igual y el
+        # dueno revisa la imagen a mano.
+        if idioma == "en":
+            return ("We've received your payment proof. It will be verified and "
+                    "we'll confirm your appointment shortly. Thank you for your patience.")
+        return ("Hemos recibido tu comprobante de pago. Será verificado y te "
+                "confirmaremos tu cita en breve. Gracias por tu paciencia.")
+
+    legible = bool(data.get("legible"))
+    _notificar_pago_async(
+        telefono_cliente=numero, canal=canal,
+        metodo=data.get("metodo", ""), monto=data.get("monto", ""),
+        remitente=data.get("remitente", ""), fecha=data.get("fecha", ""),
+        referencia=data.get("referencia", ""), image_url=image_url,
+        legible=legible, recibido=recibido,
+    )
+
+    if not legible:
+        if idioma == "en":
+            return ("We couldn't read the image clearly. Can you send a clearer "
+                    "or more complete screenshot of the payment confirmation?")
+        return ("No pudimos leer bien la imagen. ¿Puedes enviar una captura "
+                "más clara o completa del comprobante?")
+
+    if idioma == "en":
+        return ("We've received your payment proof. It will be verified and "
+                "we'll confirm your appointment shortly. Thank you for your patience.")
+    return ("Hemos recibido tu comprobante de pago. Será verificado y te "
+            "confirmaremos tu cita en breve. Gracias por tu paciencia.")
+
+
+def _mensaje_entrante(numero: str, canal: str) -> str:
+    """Enruta un mensaje de Twilio: imagen de comprobante vs. texto de reserva."""
+    num_media  = request.form.get("NumMedia", "0")
+    media_url  = request.form.get("MediaUrl0", "")
+    media_type = request.form.get("MediaContentType0", "")
+    if num_media != "0" and media_url and media_type.startswith("image/"):
+        return _procesar_imagen_pago(numero, canal, media_url, media_type)
+    mensaje = request.form.get("Body", "").strip()
+    return process_booking_message(mensaje, numero, canal)
+
+
 # ─── RUTA 2: WhatsApp entrante (Twilio webhook) ───────────
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_entrante():
-    mensaje = request.form.get("Body", "").strip()
     numero  = request.form.get("From", "")
     # Normalize to E.164 digits only for state key
     numero_key = numero.replace("whatsapp:", "").strip()
 
-    respuesta = process_booking_message(mensaje, numero_key, "whatsapp")
+    respuesta = _mensaje_entrante(numero_key, "whatsapp")
 
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -1245,10 +1391,9 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 @app.route("/sms", methods=["POST"])
 def sms_entrante():
-    mensaje = request.form.get("Body", "").strip()
     numero  = request.form.get("From", "").strip()
 
-    respuesta = process_booking_message(mensaje, numero, "sms")
+    respuesta = _mensaje_entrante(numero, "sms")
 
     twiml = MessagingResponse()
     twiml.message(respuesta)
