@@ -726,16 +726,47 @@ Respond ONLY in this JSON format:
 If the image is not clearly a payment screenshot or text is not readable, set "legible": false and leave other fields empty."""
 
 
-def _descargar_media_twilio(url: str):
-    """Descarga la imagen de Twilio. Devuelve (base64, content_type) o (None, None)."""
+def _descargar_media_twilio(url: str, ctype_webhook: str = ""):
+    """
+    Descarga la imagen de Twilio y la devuelve como (base64, content_type).
+
+    OJO: las MediaUrl de Twilio NO son publicas. Exigen HTTP Basic Auth con
+    AccountSid:AuthToken — sin credenciales Twilio responde 401 (error 20003).
+    Por eso OpenRouter tampoco puede bajarlas solo: si le pasamos la URL cruda
+    el proveedor falla y OpenRouter devuelve 400 "Failed to download image".
+
+    Lanza excepcion si falla, para que el caller lo marque como revision manual.
+    """
+    sid   = os.environ.get("TWILIO_ACCOUNT_SID", "")
+    token = os.environ.get("TWILIO_AUTH_TOKEN", "")
+    if not (sid and token):
+        raise RuntimeError(
+            "faltan TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN: "
+            "las MediaUrl de Twilio requieren Basic Auth"
+        )
+
+    cred = base64.b64encode(f"{sid}:{token}".encode()).decode("ascii")
+    req  = _urllib_req.Request(url, headers={"Authorization": f"Basic {cred}"})
     try:
-        with _urllib_req.urlopen(_urllib_req.Request(url), timeout=15) as resp:
+        with _urllib_req.urlopen(req, timeout=15) as resp:
             data  = resp.read()
-            ctype = resp.headers.get("Content-Type", "image/jpeg")
-        return base64.b64encode(data).decode("ascii"), ctype
-    except Exception as e:
-        print(f"[Pago] Error descargando media de Twilio: {e}")
-        return None, None
+            ctype = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    except _urllib_req.HTTPError as e:
+        detalle = e.read().decode("utf-8", "replace")[:300]
+        raise RuntimeError(f"Twilio HTTP {e.code} al descargar la imagen: {detalle}") from None
+
+    # Si Twilio no mando Content-Type usamos el del webhook (MediaContentType0).
+    if not ctype:
+        ctype = (ctype_webhook or "image/jpeg").split(";")[0].strip().lower()
+
+    # OpenRouter/OpenAI rechazan cualquier MIME que no sea imagen con un 400.
+    if not ctype.startswith("image/"):
+        raise RuntimeError(f"Twilio devolvio content-type '{ctype}' ({len(data)} bytes), no es una imagen")
+    if not data:
+        raise RuntimeError("Twilio devolvio una imagen vacia (0 bytes)")
+
+    print(f"[Pago] Imagen descargada de Twilio: {len(data)} bytes, {ctype}")
+    return base64.b64encode(data).decode("ascii"), ctype
 
 
 def _analizar_comprobante(image_url: str, content_type: str) -> dict:
@@ -747,26 +778,30 @@ def _analizar_comprobante(image_url: str, content_type: str) -> dict:
     if not _OPENROUTER_API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY no configurada")
 
-    # Preferimos mandar la imagen en base64 (funciona aunque la URL de Twilio
-    # no sea accesible desde OpenRouter); si falla, mandamos la URL directa.
-    b64, ctype = _descargar_media_twilio(image_url)
-    if b64:
-        img_url = f"data:{ctype or content_type or 'image/jpeg'};base64,{b64}"
-    else:
-        img_url = image_url
+    # Siempre bajamos la imagen nosotros (con Basic Auth) y la mandamos embebida
+    # como data URI en base64. Pasarle la URL de Twilio a OpenRouter no funciona.
+    b64, ctype = _descargar_media_twilio(image_url, content_type)
 
-    payload = json.dumps({
+    cuerpo = {
         "model": "openai/gpt-4o-mini",
         "messages": [{
             "role": "user",
             "content": [
                 {"type": "text", "text": _PAGO_VISION_PROMPT},
-                {"type": "image_url", "image_url": {"url": img_url}},
+                {"type": "image_url", "image_url": {"url": f"data:{ctype};base64,{b64}"}},
             ],
         }],
         "max_tokens": 300,
         "temperature": 0,
-    }).encode("utf-8")
+    }
+    payload = json.dumps(cuerpo).encode("utf-8")
+
+    # Log de diagnostico: estructura real del request sin volcar el base64 entero.
+    print(
+        f"[Pago] OpenRouter request -> model={cuerpo['model']} "
+        f"mime={ctype} b64_chars={len(b64)} payload_bytes={len(payload)} "
+        f"content_parts={[p['type'] for p in cuerpo['messages'][0]['content']]}"
+    )
 
     req = _urllib_req.Request(
         "https://openrouter.ai/api/v1/chat/completions",
@@ -779,9 +814,20 @@ def _analizar_comprobante(image_url: str, content_type: str) -> dict:
         },
         method="POST",
     )
-    with _urllib_req.urlopen(req, timeout=30) as resp:
-        result = json.loads(resp.read().decode("utf-8"))
+    try:
+        with _urllib_req.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except _urllib_req.HTTPError as e:
+        # El cuerpo del error trae el motivo real; sin esto solo se ve
+        # "HTTP Error 400: Bad Request" y no hay forma de diagnosticar.
+        detalle = e.read().decode("utf-8", "replace")[:800]
+        print(f"[Pago] OpenRouter HTTP {e.code} — cuerpo del error: {detalle}")
+        raise RuntimeError(f"OpenRouter HTTP {e.code}: {detalle}") from None
+
+    if "choices" not in result:
+        raise RuntimeError(f"OpenRouter sin choices: {json.dumps(result)[:400]}")
     reply = result["choices"][0]["message"]["content"].strip()
+    print(f"[Pago] OpenRouter respondio: {reply[:200]}")
 
     # El modelo a veces envuelve el JSON en bloques markdown — extraemos el objeto.
     match = re.search(r"\{.*\}", reply, re.S)
