@@ -259,6 +259,48 @@ def guardar(lista):
         json.dump(lista, f, indent=2, ensure_ascii=False)
 
 
+# ─── META PIXEL (solo deployment propio de Drivft) ──────
+# El pixel es de Drivft LLC, no de ningún cliente. El candado de abajo evita
+# que viaje por accidente si este repo se clona como plantilla para uno nuevo.
+DRIVFT_NEGOCIO_NOMBRE = "Drivft LLC"
+META_PIXEL_ID         = "1079201434801046"
+
+_META_PIXEL_SNIPPET = """  <!-- Meta Pixel Code -->
+  <script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '__PIXEL_ID__');
+  fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=__PIXEL_ID__&ev=PageView&noscript=1"
+  /></noscript>
+  <!-- End Meta Pixel Code -->
+""".replace("__PIXEL_ID__", META_PIXEL_ID)
+
+
+def _inyectar_meta_pixel(html):
+    """Inserta el Meta Pixel justo antes de </head>.
+
+    No toca los archivos .html en disco: la inyeccion ocurre en memoria, en
+    cada render. Si NEGOCIO_NOMBRE no es el de Drivft, devuelve el html intacto.
+    """
+    if NEGOCIO_NOMBRE.strip() != DRIVFT_NEGOCIO_NOMBRE:
+        return html
+    if "fbevents.js" in html:
+        return html
+    if "</head>" not in html:
+        print("[meta_pixel] WARNING: no se encontro </head>; pixel no inyectado")
+        return html
+    return html.replace("</head>", _META_PIXEL_SNIPPET + "</head>", 1)
+
+
 def _render_index():
     """Lee index.html e inyecta los valores de cliente_config.py."""
     with open("index.html", "r", encoding="utf-8") as f:
@@ -271,11 +313,20 @@ def _render_index():
         f'        <option>{h}</option>' for h in HORAS_DISPONIBLES
     )
 
+    # El href tel: debe ir en E.164 (RFC 3966): sin espacios, parentesis ni
+    # guiones. El texto visible del enlace conserva el formato legible.
+    tel_e164 = "+" + re.sub(r"\D", "", NEGOCIO_TELEFONO)
+
     reemplazos = {
+        # OJO: esta clave va ANTES que "{{NEGOCIO_TELEFONO}}". El bucle de abajo
+        # sustituye en el orden del dict, y la variante mas especifica (el href)
+        # tiene que ganar; si se reordena, el href queda con el formato legible.
+        "tel:{{NEGOCIO_TELEFONO}}": "tel:" + tel_e164,
         "{{NEGOCIO_NOMBRE}}":     NEGOCIO_NOMBRE,
         "{{NEGOCIO_SLOGAN}}":     NEGOCIO_SLOGAN,
         "{{NEGOCIO_EMOJI}}":      NEGOCIO_EMOJI,
         "{{NEGOCIO_TELEFONO}}":   NEGOCIO_TELEFONO,
+        "{{NEGOCIO_EMAIL}}":      NEGOCIO_EMAIL,
         "{{NEGOCIO_DIRECCION}}":  NEGOCIO_DIRECCION,
         "{{COLOR_PRIMARIO}}":     COLOR_PRIMARIO,
         "{{COLOR_SECUNDARIO}}":   COLOR_SECUNDARIO,
@@ -305,6 +356,8 @@ def _render_index():
         print(f"[render_index] ⚠️  Markers sin reemplazar: {sin_reemplazar}")
     else:
         print("[render_index] ✅ Todos los markers reemplazados OK (v2)")
+
+    html = _inyectar_meta_pixel(html)
 
     response = make_response(html)
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -400,6 +453,7 @@ def _render_landing():
     """Sirve landing.html (página principal Drivft) sin caché."""
     with open("landing.html", "r", encoding="utf-8") as f:
         html = f.read()
+    html = _inyectar_meta_pixel(html)
     response = make_response(html)
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
