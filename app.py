@@ -1,3 +1,8 @@
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from dotenv import load_dotenv
 load_dotenv()
 from flask import Flask, request, jsonify, session, redirect, url_for, make_response
@@ -24,6 +29,7 @@ from cliente_config import (
 )
 import base64, json, os, re, threading
 from datetime import datetime, timedelta
+from urllib.parse import quote as _url_quote
 from zoneinfo import ZoneInfo
 
 _EASTERN = ZoneInfo("America/New_York")
@@ -301,6 +307,88 @@ def _inyectar_meta_pixel(html):
     return html.replace("</head>", _META_PIXEL_SNIPPET + "</head>", 1)
 
 
+# ─── OFERTA DE LANZAMIENTO (solo deployment propio de Drivft) ───
+# Misma logica que el pixel: candado por NEGOCIO_NOMBRE, inyeccion en memoria
+# sobre el html ya leido, nunca se toca el archivo en disco. Se apaga sola
+# despues de OFERTA_FECHA_LIMITE, sin tocar codigo.
+OFERTA_FECHA_LIMITE = datetime(2026, 10, 3, 23, 59, 59, tzinfo=_EASTERN)  # ~40 dias desde 2026-08-24
+
+# Numero de contacto REAL del negocio (no confundir con NEGOCIO_WHATSAPP, que
+# es el numero de Twilio/chatbot). No existe como variable en cliente_config.py
+# ni en ningun otro lado del repo — solo aparecia hardcodeado en el texto de
+# /privacy ("(689) 299-3994"). Se define aqui, junto al resto de constantes de
+# la oferta, en vez de tocar cliente_config.py.
+_OFERTA_CONTACTO_WHATSAPP = "16892993994"
+
+_MARCADOR_SECCION_PRECIOS = '<section id="precios">'
+
+_OFERTA_LANZAMIENTO_SNIPPET = """<!-- Oferta de lanzamiento (Drivft LLC) — inyectada por _inyectar_oferta_lanzamiento() -->
+<style>
+  @keyframes oferta-lanzamiento-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.045); }
+  }
+  #oferta-lanzamiento .oferta-cta {
+    animation: oferta-lanzamiento-pulse 1.8s ease-in-out infinite;
+  }
+</style>
+<section id="oferta-lanzamiento" style="background:#5B5BF6;padding:44px 24px;text-align:center">
+  <div style="max-width:640px;margin:0 auto">
+    <p style="margin:0 0 8px;font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.75)">
+      <span data-lang="es">Tiempo limitado</span>
+      <span data-lang="en">Limited time</span>
+    </p>
+    <h3 style="margin:0 0 12px;font-size:clamp(22px,4vw,30px);font-weight:800;color:#fff;line-height:1.25">
+      <span data-lang="es">Oferta de lanzamiento: $97/mes</span>
+      <span data-lang="en">Launch offer: $97/mo</span>
+    </h3>
+    <p style="margin:0 0 26px;font-size:15px;color:rgba(255,255,255,.92);line-height:1.6">
+      <span data-lang="es">Solo para los primeros 10 negocios de Kissimmee y Orlando. Garantía de 30 días o te devolvemos tu dinero.</span>
+      <span data-lang="en">Only for the first 10 businesses in Kissimmee and Orlando. 30-day money-back guarantee.</span>
+    </p>
+    <a href="__CTA_HREF__" target="_blank" rel="noopener" class="oferta-cta"
+       style="display:inline-block;background:#fff;color:#5B5BF6;font-weight:700;font-size:15px;
+              padding:13px 30px;border-radius:24px;text-decoration:none">
+      <span data-lang="es">Quiero mi demo gratis</span>
+      <span data-lang="en">I want my free demo</span>
+    </a>
+  </div>
+</section>
+"""
+
+
+def _inyectar_oferta_lanzamiento(html):
+    """Inserta el banner de oferta de lanzamiento justo antes de la seccion
+    de precios (<section id="precios">).
+
+    Mismo patron que _inyectar_meta_pixel: opera en memoria sobre el html ya
+    leido, nunca toca los .html en disco. Candado por NEGOCIO_NOMBRE, igual
+    que el pixel — esta oferta es de Drivft LLC, no de un cliente. Se apaga
+    sola despues de OFERTA_FECHA_LIMITE sin que nadie edite codigo.
+    """
+    if NEGOCIO_NOMBRE.strip() != DRIVFT_NEGOCIO_NOMBRE:
+        return html
+    if datetime.now(_EASTERN) > OFERTA_FECHA_LIMITE:
+        return html
+    if 'id="oferta-lanzamiento"' in html:
+        return html
+    if _MARCADOR_SECCION_PRECIOS not in html:
+        print("[oferta_lanzamiento] WARNING: no se encontro la seccion de precios; oferta no inyectada")
+        return html
+
+    if _OFERTA_CONTACTO_WHATSAPP:
+        cta_href = f"https://wa.me/{_OFERTA_CONTACTO_WHATSAPP}?text=" + _url_quote(
+            "Hola! Quiero mi demo gratis de la oferta de lanzamiento ($97/mes)."
+        )
+    else:
+        cta_href = "mailto:contact@getdrivftllc.com?subject=" + _url_quote(
+            "Quiero mi demo gratis — Oferta de lanzamiento"
+        )
+
+    snippet = _OFERTA_LANZAMIENTO_SNIPPET.replace("__CTA_HREF__", cta_href)
+    return html.replace(_MARCADOR_SECCION_PRECIOS, snippet + _MARCADOR_SECCION_PRECIOS, 1)
+
+
 def _render_index():
     """Lee index.html e inyecta los valores de cliente_config.py."""
     with open("index.html", "r", encoding="utf-8") as f:
@@ -358,6 +446,7 @@ def _render_index():
         print("[render_index] ✅ Todos los markers reemplazados OK (v2)")
 
     html = _inyectar_meta_pixel(html)
+    html = _inyectar_oferta_lanzamiento(html)
 
     response = make_response(html)
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
