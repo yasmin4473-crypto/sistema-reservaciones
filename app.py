@@ -1010,10 +1010,12 @@ def _procesar_imagen_pago(numero: str, canal: str, image_url: str, content_type:
         data = _analizar_comprobante(image_url, content_type)
     except Exception as e:
         print(f"[Pago] Error analizando comprobante de {numero}: {e}")
+        print(f"[Pago] >>> Llamando notificar_pago_recibido (error path) para {numero}")
         notificar_pago_recibido(
             telefono_cliente=numero, canal=canal, image_url=image_url,
             legible=False, error=str(e), recibido=recibido,
         )
+        print(f"[Pago] >>> notificar_pago_recibido completado (error path)")
         # La falla es nuestra, no del cliente — acusamos recibo igual y el
         # dueno revisa la imagen a mano.
         if idioma == "en":
@@ -1026,6 +1028,7 @@ def _procesar_imagen_pago(numero: str, canal: str, image_url: str, content_type:
                 "confirmaremos tu cita en breve. Gracias por tu paciencia.")
 
     legible = bool(data.get("legible"))
+    print(f"[Pago] >>> Llamando notificar_pago_recibido (legible={legible}) para {numero}")
     notificar_pago_recibido(
         telefono_cliente=numero, canal=canal,
         metodo=data.get("metodo", ""), monto=data.get("monto", ""),
@@ -1033,6 +1036,7 @@ def _procesar_imagen_pago(numero: str, canal: str, image_url: str, content_type:
         referencia=data.get("referencia", ""), image_url=image_url,
         legible=legible, recibido=recibido,
     )
+    print(f"[Pago] >>> notificar_pago_recibido completado (legible={legible})")
 
     if not legible:
         if idioma == "en":

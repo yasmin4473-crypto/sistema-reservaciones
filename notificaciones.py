@@ -269,6 +269,7 @@ def notificar_pago_recibido(telefono_cliente, canal, metodo="", monto="", remite
     debe verificar el pago manualmente. Nada se confirma automaticamente.
     """
     destinatario = os.environ.get("GMAIL_USER") or NEGOCIO_EMAIL
+    print(f"[Pago] notificar_pago_recibido() entrado — destinatario={destinatario!r}, RESEND_KEY={'SET' if os.environ.get('RESEND_API_KEY') else 'MISSING'}")
     if not destinatario:
         print("[Pago] No hay email de destino configurado (GMAIL_USER / NEGOCIO_EMAIL)")
         return False
