@@ -979,26 +979,22 @@ def _analizar_comprobante(image_url: str, content_type: str) -> dict:
     return json.loads(match.group(0))
 
 
-def _notificar_pago_async(**kwargs):
-    """Manda el email al dueno en segundo plano para responderle rapido a Twilio."""
-    t = threading.Thread(target=notificar_pago_recibido, kwargs=kwargs, daemon=True)
-    t.start()
-
-
 def _procesar_imagen_pago(numero: str, canal: str, image_url: str, content_type: str) -> str:
     """
     Procesa una imagen de comprobante y devuelve la respuesta para el cliente.
     Nunca toca _booking_state, asi que una conversacion de reserva en curso
     para ese numero sigue exactamente donde estaba.
     """
-    idioma   = _booking_state.get(numero, {}).get("idioma", "es")
+    # None = no prior text conversation (image arrived first or state was wiped);
+    # use bilingual fallback strings instead of guessing.
+    idioma   = _booking_state.get(numero, {}).get("idioma", None)
     recibido = datetime.now(_EASTERN).strftime("%Y-%m-%d %H:%M")
 
     try:
         data = _analizar_comprobante(image_url, content_type)
     except Exception as e:
         print(f"[Pago] Error analizando comprobante de {numero}: {e}")
-        _notificar_pago_async(
+        notificar_pago_recibido(
             telefono_cliente=numero, canal=canal, image_url=image_url,
             legible=False, error=str(e), recibido=recibido,
         )
@@ -1007,11 +1003,14 @@ def _procesar_imagen_pago(numero: str, canal: str, image_url: str, content_type:
         if idioma == "en":
             return ("We've received your payment proof. It will be verified and "
                     "we'll confirm your appointment shortly. Thank you for your patience.")
+        if idioma is None:
+            return ("Hemos recibido tu comprobante de pago / We've received your payment proof. "
+                    "Será verificado pronto / It will be verified shortly. 🙏")
         return ("Hemos recibido tu comprobante de pago. Será verificado y te "
                 "confirmaremos tu cita en breve. Gracias por tu paciencia.")
 
     legible = bool(data.get("legible"))
-    _notificar_pago_async(
+    notificar_pago_recibido(
         telefono_cliente=numero, canal=canal,
         metodo=data.get("metodo", ""), monto=data.get("monto", ""),
         remitente=data.get("remitente", ""), fecha=data.get("fecha", ""),
@@ -1023,12 +1022,18 @@ def _procesar_imagen_pago(numero: str, canal: str, image_url: str, content_type:
         if idioma == "en":
             return ("We couldn't read the image clearly. Can you send a clearer "
                     "or more complete screenshot of the payment confirmation?")
+        if idioma is None:
+            return ("No pudimos leer la imagen / We couldn't read the image clearly. "
+                    "¿Puedes enviar una captura más clara? / Can you send a clearer screenshot?")
         return ("No pudimos leer bien la imagen. ¿Puedes enviar una captura "
                 "más clara o completa del comprobante?")
 
     if idioma == "en":
         return ("We've received your payment proof. It will be verified and "
                 "we'll confirm your appointment shortly. Thank you for your patience.")
+    if idioma is None:
+        return ("Hemos recibido tu comprobante de pago / We've received your payment proof. "
+                "Será verificado pronto / It will be verified shortly. 🙏")
     return ("Hemos recibido tu comprobante de pago. Será verificado y te "
             "confirmaremos tu cita en breve. Gracias por tu paciencia.")
 
