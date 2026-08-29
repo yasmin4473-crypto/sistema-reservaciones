@@ -666,8 +666,10 @@ Your job is to collect 4 pieces of information to book an appointment:
 Rules:
 - CRITICAL: Once you have determined the user's language from ANY message in the conversation, continue responding in that SAME language for the rest of the conversation, even if later messages are short or ambiguous (like a single word). Do not switch languages mid-conversation unless the user clearly switches first. If the user writes in English, respond in English. If in Spanish, respond in Spanish. Do not default to Spanish.
 - Ask for missing fields one at a time in a natural, friendly way.
-- When you have all 4 fields, summarize and ask for confirmation. Example:
-  "Perfecto! Tu cita queda así:\n👤 {'{nombre}'}\n📅 {'{fecha}'}\n⏰ {'{hora}'}\n💆 {'{servicio}'}\n\n¿Confirmas? (sí / no)"
+- When you have all 4 fields, summarize and ask for confirmation. Use the example matching
+  the conversation's detected language. Never mix languages in one message.
+  Spanish: "Perfecto! Tu cita queda así:\n👤 {'{nombre}'}\n📅 {'{fecha}'}\n⏰ {'{hora}'}\n💆 {'{servicio}'}\n\n¿Confirmas? (sí / no)"
+  English: "Perfect! Your appointment is set:\n👤 {'{name}'}\n📅 {'{date}'}\n⏰ {'{time}'}\n💆 {'{service}'}\n\nCan you confirm? (yes / no)"
 - ONLY output a JSON block when the user has confirmed. Format (nothing else, no prose):
   BOOKING_JSON:{{"nombre":"{'{nombre}'}", "fecha":"YYYY-MM-DD", "hora":"{'{hora}'}", "servicio":"{'{servicio}'}"}}.
 - If the user says something off-topic, answer briefly then bring them back to booking.
@@ -809,7 +811,7 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
         try:
             raw = reply[len("BOOKING_JSON:"):].strip()
             data = json.loads(raw)
-            _idioma = state.get("idioma", "es")
+            _idioma = state.get("idioma", None)
             _save_booking(
                 nombre   = data.get("nombre", "Cliente"),
                 fecha    = data["fecha"],
@@ -817,7 +819,7 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
                 servicio = data["servicio"],
                 telefono = numero,
                 canal    = canal,
-                idioma   = _idioma,
+                idioma   = _idioma or "es",
             )
             # Reset state after successful booking
             _booking_state.pop(numero, None)
@@ -827,6 +829,13 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
                     f"📅 {data['fecha']} at {data['hora']}\n"
                     f"💆 {data['servicio']}\n\n"
                     f"We'll see you at {NEGOCIO_NOMBRE}. You'll get a reminder tomorrow."
+                )
+            if _idioma is None:
+                return (
+                    f"✅ Reservación confirmada / Booking confirmed, {data.get('nombre', '')}!\n"
+                    f"📅 {data['fecha']} — {data['hora']}\n"
+                    f"💆 {data['servicio']}\n\n"
+                    f"Te esperamos / See you at {NEGOCIO_NOMBRE}. 🙏"
                 )
             return (
                 f"✅ ¡Reservación confirmada, {data.get('nombre', '')}!\n"
@@ -839,6 +848,8 @@ def process_booking_message(mensaje: str, numero: str, canal: str) -> str:
             _booking_state.pop(numero, None)
             if state.get("idioma") == "en":
                 return "There was an error saving your appointment. Please try again."
+            if state.get("idioma") is None:
+                return "Error al guardar / Error saving your appointment. Please try again / Intenta de nuevo."
             return "Hubo un error al guardar tu cita. Por favor intenta de nuevo."
 
     # ── Normal conversational reply — store assistant turn in history ──
